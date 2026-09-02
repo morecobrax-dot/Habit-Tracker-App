@@ -22,60 +22,74 @@ Data model, storage layer, habit CRUD. No game layer.
 No XP, no levels. Logging events, and streaks derived correctly from
 them.
 
+Implemented in `cda25fd`. Audited against this checklist in
+`reports/phase-2.md`: 20 of 23 items verified, 3 open — all product
+rulings, not code. Box stays unticked until those are settled.
+
 **Logging**
-- [ ] Log entry records: habit id, the date it applies to, completion
+- [x] Log entry records: habit id, the date it applies to, completion
       type (complete / partial / skipped), and creation timestamp.
       Applied-date and created-at are stored separately — backdating
       makes them differ and later features need both.
-- [ ] One log per habit per day; logging again updates rather than
+- [x] One log per habit per day; logging again updates rather than
       duplicating.
-- [ ] Backdating allowed for the previous 2 days only (today is day 0).
+- [x] Backdating allowed for the previous 2 days only (today is day 0).
       Enforced in the logic layer, not just the UI.
 - [ ] "Skipped" is a deliberate user action and is not the same as an
       untouched day. Treat them differently in streak rules.
+      **OPEN** — currently identical to untouched, which contradicts an
+      earlier explicit decision. Needs a ruling. See `reports/phase-2.md`.
 
 **Streaks — cadence-aware**
-- [ ] Daily habits: consecutive qualifying days.
-- [ ] Specific-weekday habits: only scheduled weekdays can break a
+- [x] Daily habits: consecutive qualifying days.
+- [x] Specific-weekday habits: only scheduled weekdays can break a
       streak; unscheduled days ignored entirely.
-- [ ] X-per-week habits: evaluated by week, not by day. Streak counts
+- [x] X-per-week habits: evaluated by week, not by day. Streak counts
       satisfied weeks. The current week is never counted as broken while
       still in progress.
-- [ ] Complete and partial both keep a streak alive. Partial counts at
+- [x] Complete and partial both keep a streak alive. Partial counts at
       full weight toward x-per-week for now — flag it if that's wrong.
-- [ ] Current streak and longest streak tracked per habit.
+- [x] Current streak and longest streak tracked per habit.
 
 **Freeze tokens**
-- [ ] Earned on a weekly cadence up to a small cap. Propose the exact
+- [x] Earned on a weekly cadence up to a small cap. Propose the exact
       earn rate and cap with reasoning before implementing.
-- [ ] Consumed automatically to cover a break; the user can see it
+- [x] Consumed automatically to cover a break; the user can see it
       happened.
-- [ ] Can't go negative, can't be spent retroactively beyond the
+- [x] Can't go negative, can't be spent retroactively beyond the
       backdating window.
 
 **Edge cases — handle each explicitly, don't leave them implicit**
-- [ ] Day rollover: when does "today" end? Local time, one configurable
+- [x] Day rollover: when does "today" end? Local time, one configurable
       boundary value.
-- [ ] Timezone change while travelling: logs must not shift days or
+- [x] Timezone change while travelling: logs must not shift days or
       duplicate.
-- [ ] Habit created mid-week — how does its first x-per-week window work?
+- [x] Habit created mid-week — how does its first x-per-week window work?
 - [ ] Habit archived then reactivated: does the old streak resume or
       start fresh? Propose an answer.
+      **OPEN** — today the archived stretch counts as misses, silently
+      breaking the streak. Proposal in `reports/phase-2.md`.
 - [ ] Cadence changed on a habit with history: how are past streaks
       treated?
-- [ ] Multiple logs submitted rapidly for the same habit and day.
-- [ ] A backdated log that retroactively repairs a broken streak.
+      **OPEN** — history is judged by today's cadence, so a cadence change
+      retroactively destroys earned streaks. Proposal in
+      `reports/phase-2.md`.
+- [x] Multiple logs submitted rapidly for the same habit and day.
+- [x] A backdated log that retroactively repairs a broken streak.
 
 **Tests — the part that matters most**
-- [ ] Pure functions for all streak and cadence logic. Current date
+- [x] Pure functions for all streak and cadence logic. Current date
       passed in, never read from the clock inside.
 - [ ] Tests covering every edge case above, plus: a normal unbroken run,
       a break with no token available, a break covered by a token, a
       week boundary crossing, a longest-streak update.
-- [ ] Tests passing before any UI work.
+      All five named cases covered, plus timezone change, rapid
+      submission and backdated repair. Stays open only because two edge
+      cases above are unresolved.
+- [x] Tests passing before any UI work.
 
 **UI**
-- [ ] Minimal only: log complete / partial / skipped, backdate within
+- [x] Minimal only: log complete / partial / skipped, backdate within
       the window, see current streak. Plain, no polish.
 
 ### [ ] Phase 3 — XP and levels
