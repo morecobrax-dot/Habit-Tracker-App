@@ -53,7 +53,7 @@ export function TodayRoute() {
           <button
             type="button"
             onClick={() => setSelectedDay(today)}
-            className="-my-2 min-h-11 px-1 text-xs font-medium text-text-muted hover:text-text"
+            className="-my-2 min-h-11 px-1 text-xs font-medium text-legacy-text-muted hover:text-text"
           >
             Back to today
           </button>
@@ -63,7 +63,7 @@ export function TodayRoute() {
       {error && (
         <p
           role="alert"
-          className="rounded-xl border border-danger/40 bg-danger-dim px-3 py-2.5 text-xs leading-relaxed text-danger"
+          className="rounded-xl border border-legacy-danger/40 bg-danger-dim px-3 py-2.5 text-xs leading-relaxed text-legacy-danger"
         >
           {error}
         </p>
@@ -95,7 +95,7 @@ export function TodayRoute() {
                   Also today
                 </h2>
               )}
-              <ul className="overflow-hidden rounded-2xl border border-line bg-surface">
+              <ul className="overflow-hidden rounded-2xl border border-line bg-legacy-surface">
                 {view.entries.map((entry, index) => (
                   <HabitRow
                     key={entry.habit.id}
@@ -275,7 +275,7 @@ function FocusCard({
         {/* Same heading level as the pending state, so the card's identity in
             the accessibility tree does not change when it is completed. */}
         <h2 className="mt-2 text-lg font-semibold tracking-tight text-text">{habit.name}</h2>
-        <p className="mt-2 text-sm leading-relaxed text-text-muted">
+        <p className="mt-2 text-sm leading-relaxed text-legacy-text-muted">
           {log.outcome === 'complete'
             ? 'Done — and this was the one you were most likely to put off.'
             : 'Started. That was the hard part; the rest is optional.'}
@@ -460,7 +460,7 @@ function HabitRow({
           <p
             className={[
               'truncate text-sm font-medium',
-              credited ? 'text-text-muted line-through decoration-text-faint' : 'text-text',
+              credited ? 'text-legacy-text-muted line-through decoration-text-faint' : 'text-text',
             ].join(' ')}
           >
             {habit.name}
@@ -553,7 +553,7 @@ function BackdateBar({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mx-auto min-h-11 px-3 text-xs text-text-faint transition-colors hover:text-text-muted"
+        className="mx-auto min-h-11 px-3 text-xs text-text-faint transition-colors hover:text-legacy-text-muted"
       >
         Forgot to log an earlier day?
       </button>
@@ -572,7 +572,7 @@ function BackdateBar({
             // min-h-11 (44px) is the iOS comfortable-tap minimum. These sit in
             // a tight row where mis-taps silently log the wrong day.
             'min-h-11 flex-1 rounded-lg px-2 text-xs font-medium transition-colors',
-            day === active ? 'bg-brand text-white' : 'text-text-muted hover:bg-surface-hover',
+            day === active ? 'bg-brand text-white' : 'text-legacy-text-muted hover:bg-surface-hover',
           ].join(' ')}
         >
           {relativeDayLabel(day, today)}
@@ -628,8 +628,8 @@ function RolloverNotice({ onDismiss }: { onDismiss: () => void }) {
   const { freezesSpent, streaksBroken } = lastRollover
 
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-line bg-surface px-3.5 py-3">
-      <div className="flex-1 text-xs leading-relaxed text-text-muted">
+    <div className="flex items-start gap-3 rounded-xl border border-line bg-legacy-surface px-3.5 py-3">
+      <div className="flex-1 text-xs leading-relaxed text-legacy-text-muted">
         {freezesSpent.length > 0 && (
           <p>
             <span className="text-text">

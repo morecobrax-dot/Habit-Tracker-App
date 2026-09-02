@@ -1,24 +1,28 @@
 @import 'tailwindcss';
+@import './tokens.css';
 
 /**
- * Design tokens.
+ * ---------------------------------------------------------------------------
+ * LEGACY TOKENS — SCHEDULED FOR DELETION
+ * ---------------------------------------------------------------------------
+ * Everything in the @theme block below is the pre-overhaul palette. It is kept
+ * only so the existing screens keep rendering while they are migrated to
+ * `tokens.css` one at a time.
  *
- * Dark-only for now. A light theme is phase 5 polish; committing to one scheme
- * keeps this phase's visual surface small and honest.
- *
- * The palette is deliberately calm. This app is opened on days when the user is
- * avoiding something, and a loud interface reads as pressure.
+ * Nothing new may reference these. They are deleted in the final step of the
+ * design overhaul, and the audit at the end fails if any component still
+ * points at them.
  */
 @theme {
   --color-ink: #0b1020;
-  --color-surface: #141b2f;
+  --color-legacy-surface: #141b2f;
   --color-surface-raised: #1c2440;
   --color-surface-hover: #232c4d;
   --color-line: #2b3559;
   --color-line-strong: #3a4670;
 
   --color-text: #e9edfa;
-  --color-text-muted: #98a3c4;
+  --color-legacy-text-muted: #98a3c4;
   --color-text-faint: #6b769a;
 
   --color-brand: #6d7cff;
@@ -28,7 +32,7 @@
   /* Reserved for XP and level-up in phase 3. */
   --color-xp: #f5a524;
 
-  --color-danger: #f2555a;
+  --color-legacy-danger: #f2555a;
   --color-danger-dim: #3a1f2a;
 
   --color-tier-1: #56ccf2;
@@ -36,9 +40,9 @@
   --color-tier-3: #fbbf24;
   --color-tier-4: #fb7185;
 
-  --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-    sans-serif;
+  /* `--font-sans` is deliberately NOT redeclared here. The new type system in
+   * tokens.css owns it, so Outfit applies app-wide from step 1 — a type scale
+   * that can only be seen on an isolated swatch page is not reviewable. */
 }
 
 @layer base {

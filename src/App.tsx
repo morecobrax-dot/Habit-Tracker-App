@@ -4,6 +4,7 @@ import { TodayRoute } from '@/routes/Today'
 import { HabitsRoute } from '@/routes/Habits'
 import { HabitEditorRoute } from '@/routes/HabitEditor'
 import { SettingsRoute } from '@/routes/Settings'
+import { StyleGuideRoute } from '@/routes/StyleGuide'
 
 /**
  * `HashRouter` rather than `BrowserRouter`: it works on any static host with no
@@ -41,6 +42,12 @@ function Shell() {
           <Route path="/habits/new" element={<HabitEditorRoute />} />
           <Route path="/habits/:id/edit" element={<HabitEditorRoute />} />
           <Route path="/settings" element={<SettingsRoute />} />
+          {/* Design-system swatch page. Dev-only: `import.meta.env.DEV` is
+              statically false in a production build, so the route and the
+              component are dropped by tree-shaking rather than shipped. */}
+          {import.meta.env.DEV && (
+            <Route path="/styleguide" element={<StyleGuideRoute />} />
+          )}
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>
       </main>
@@ -72,7 +79,7 @@ function TabLink({ to, label }: { to: string; label: string }) {
       className={({ isActive }) =>
         [
           'flex flex-1 items-center justify-center py-3 text-sm font-medium transition-colors',
-          isActive ? 'text-brand-strong' : 'text-text-faint hover:text-text-muted',
+          isActive ? 'text-brand-strong' : 'text-text-faint hover:text-legacy-text-muted',
         ].join(' ')
       }
     >

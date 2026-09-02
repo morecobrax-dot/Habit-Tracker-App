@@ -8,8 +8,8 @@ const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   primary: 'bg-brand text-white hover:bg-brand-strong active:bg-brand-strong',
   secondary:
     'bg-surface-raised text-text border border-line hover:bg-surface-hover active:bg-surface-hover',
-  ghost: 'bg-transparent text-text-muted hover:text-text hover:bg-surface-raised',
-  danger: 'bg-danger-dim text-danger border border-danger/40 hover:bg-danger/20',
+  ghost: 'bg-transparent text-legacy-text-muted hover:text-text hover:bg-surface-raised',
+  danger: 'bg-danger-dim text-legacy-danger border border-legacy-danger/40 hover:bg-legacy-danger/20',
 }
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -48,7 +48,7 @@ export function Card({
   className?: string
 }) {
   return (
-    <div className={`rounded-2xl border border-line bg-surface p-4 ${className}`}>{children}</div>
+    <div className={`rounded-2xl border border-line bg-legacy-surface p-4 ${className}`}>{children}</div>
   )
 }
 
@@ -73,7 +73,7 @@ export function Field({
       {hint && <p className="text-xs leading-relaxed text-text-faint">{hint}</p>}
       {children}
       {error && (
-        <p role="alert" className="text-xs text-danger">
+        <p role="alert" className="text-xs text-legacy-danger">
           {error}
         </p>
       )}
@@ -91,7 +91,7 @@ export function TextInput({
 }: React.InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }) {
   return (
     <input
-      className={`${INPUT_BASE} ${invalid ? 'border-danger' : 'border-line'} ${className}`}
+      className={`${INPUT_BASE} ${invalid ? 'border-legacy-danger' : 'border-line'} ${className}`}
       {...rest}
     />
   )
@@ -104,7 +104,7 @@ export function TextArea({
 }: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean }) {
   return (
     <textarea
-      className={`${INPUT_BASE} resize-y ${invalid ? 'border-danger' : 'border-line'} ${className}`}
+      className={`${INPUT_BASE} resize-y ${invalid ? 'border-legacy-danger' : 'border-line'} ${className}`}
       {...rest}
     />
   )
@@ -147,7 +147,7 @@ export function SegmentedControl<T extends string | number>({
             className={[
               // 44px minimum: these are dense multi-option rows on a phone.
               'min-h-11 flex-1 rounded-lg px-2 text-xs font-medium transition-colors',
-              selected ? 'bg-brand text-white' : 'text-text-muted hover:bg-surface-hover',
+              selected ? 'bg-brand text-white' : 'text-legacy-text-muted hover:bg-surface-hover',
             ].join(' ')}
           >
             {option.accent && !selected && (
@@ -177,7 +177,7 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-line px-6 py-12 text-center">
       <h2 className="text-base font-medium text-text">{title}</h2>
-      <p className="max-w-xs text-sm leading-relaxed text-text-muted">{body}</p>
+      <p className="max-w-xs text-sm leading-relaxed text-legacy-text-muted">{body}</p>
       {action}
     </div>
   )
@@ -192,7 +192,7 @@ export function Badge({
 }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-md bg-surface-raised px-2 py-1 text-xs text-text-muted"
+      className="inline-flex items-center gap-1.5 rounded-md bg-surface-raised px-2 py-1 text-xs text-legacy-text-muted"
       style={color ? { color } : undefined}
     >
       {children}

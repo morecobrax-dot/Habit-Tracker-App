@@ -33,7 +33,7 @@ export function HabitsRoute() {
       <header className="flex items-baseline justify-between pt-2">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Habits</h1>
-          <p className="mt-1 text-sm text-text-muted">
+          <p className="mt-1 text-sm text-legacy-text-muted">
             {active.length === 0
               ? 'Nothing set up yet'
               : `${active.length} active${archived.length > 0 ? ` · ${archived.length} archived` : ''}`}
@@ -67,7 +67,7 @@ export function HabitsRoute() {
           <button
             type="button"
             onClick={() => setShowArchived((v) => !v)}
-            className="flex items-center gap-2 self-start text-sm text-text-muted hover:text-text"
+            className="flex items-center gap-2 self-start text-sm text-legacy-text-muted hover:text-text"
             aria-expanded={showArchived}
           >
             <span aria-hidden className={showArchived ? 'rotate-90 transition' : 'transition'}>
@@ -106,7 +106,7 @@ function HabitRow({ habit, archived = false }: { habit: Habit; archived?: boolea
   return (
     <li
       className={[
-        'rounded-2xl border border-line bg-surface transition-colors',
+        'rounded-2xl border border-line bg-legacy-surface transition-colors',
         archived ? 'opacity-55' : 'hover:border-line-strong',
       ].join(' ')}
     >
@@ -123,7 +123,7 @@ function HabitRow({ habit, archived = false }: { habit: Habit; archived?: boolea
           className="min-w-0 flex-1 text-left"
         >
           <p className="truncate font-medium text-text">{habit.name}</p>
-          <p className="mt-0.5 text-xs text-text-muted">
+          <p className="mt-0.5 text-xs text-legacy-text-muted">
             {describeSchedule(habit.schedule)}
             {habit.category && ` · ${habit.category}`}
             {` · ${DIFFICULTY_LABELS[habit.difficulty]}`}
@@ -134,7 +134,7 @@ function HabitRow({ habit, archived = false }: { habit: Habit; archived?: boolea
             having to go looking for it.
           */}
           <p className="mt-2 text-xs leading-relaxed text-text-faint">
-            <span className="text-text-muted">Bad day:</span> {habit.minimumVersion}
+            <span className="text-legacy-text-muted">Bad day:</span> {habit.minimumVersion}
           </p>
         </button>
 

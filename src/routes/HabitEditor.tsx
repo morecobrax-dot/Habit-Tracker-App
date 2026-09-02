@@ -118,7 +118,7 @@ export function HabitEditorRoute() {
   if (notFound) {
     return (
       <div className="flex flex-col items-start gap-4 py-8">
-        <p className="text-sm text-text-muted">That habit no longer exists.</p>
+        <p className="text-sm text-legacy-text-muted">That habit no longer exists.</p>
         <Button onClick={() => navigate('/habits', { replace: true })}>Back to habits</Button>
       </div>
     )
@@ -307,7 +307,7 @@ function ScheduleEditor({
                   'h-11 flex-1 rounded-lg border text-sm font-medium transition-colors',
                   schedule.target === n
                     ? 'border-brand bg-brand text-white'
-                    : 'border-line bg-surface-raised text-text-muted hover:bg-surface-hover',
+                    : 'border-line bg-surface-raised text-legacy-text-muted hover:bg-surface-hover',
                 ].join(' ')}
               >
                 {n}
@@ -337,7 +337,7 @@ function ScheduleEditor({
                   'h-11 flex-1 rounded-lg border text-xs font-medium transition-colors',
                   selected
                     ? 'border-brand bg-brand text-white'
-                    : 'border-line bg-surface-raised text-text-muted hover:bg-surface-hover',
+                    : 'border-line bg-surface-raised text-legacy-text-muted hover:bg-surface-hover',
                 ].join(' ')}
               >
                 {name.slice(0, 2)}

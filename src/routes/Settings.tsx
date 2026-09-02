@@ -24,7 +24,7 @@ export function SettingsRoute() {
       </header>
 
       <Card className="flex flex-col gap-5">
-        <h2 className="text-sm font-semibold tracking-wide text-text-muted uppercase">Your day</h2>
+        <h2 className="text-sm font-semibold tracking-wide text-legacy-text-muted uppercase">Your day</h2>
 
         <Field
           label="A new day starts at"
@@ -74,8 +74,8 @@ export function SettingsRoute() {
         </Field>
 
         <div className="rounded-xl border border-line bg-surface-raised px-3 py-2.5 text-xs leading-relaxed text-text-faint">
-          Right now it is <span className="text-text-muted">{today}</span> for you. This day ends at{' '}
-          <span className="text-text-muted">
+          Right now it is <span className="text-legacy-text-muted">{today}</span> for you. This day ends at{' '}
+          <span className="text-legacy-text-muted">
             {String(dayContext.dayStartHour).padStart(2, '0')}:00
           </span>{' '}
           tomorrow in {dayContext.timeZone}.
@@ -83,7 +83,7 @@ export function SettingsRoute() {
             <>
               {' '}
               The calendar date is already{' '}
-              <span className="text-text-muted">
+              <span className="text-legacy-text-muted">
                 {toDayKey(systemClock.now(), { ...dayContext, dayStartHour: 0 })}
               </span>
               , but your day hasn't rolled over yet.
@@ -93,7 +93,7 @@ export function SettingsRoute() {
       </Card>
 
       <Card className="flex flex-col gap-4">
-        <h2 className="text-sm font-semibold tracking-wide text-text-muted uppercase">Logging</h2>
+        <h2 className="text-sm font-semibold tracking-wide text-legacy-text-muted uppercase">Logging</h2>
         <Field
           label="Backdating window"
           hint="How far back you can log. Kept short on purpose: reconstructing last week from memory is fiction, and fiction in the log makes every number downstream meaningless."
@@ -194,7 +194,7 @@ function DataCard() {
   return (
     <Card className="flex flex-col gap-4">
       <div>
-        <h2 className="text-sm font-semibold tracking-wide text-text-muted uppercase">Your data</h2>
+        <h2 className="text-sm font-semibold tracking-wide text-legacy-text-muted uppercase">Your data</h2>
         <p className="mt-2 text-xs leading-relaxed text-text-faint">
           This app has no backend, so this device is the only copy. Browsers can evict local storage
           under pressure. Export occasionally.
@@ -223,7 +223,7 @@ function DataCard() {
       {status && (
         <p
           role="status"
-          className={`text-xs ${status.tone === 'ok' ? 'text-text-muted' : 'text-danger'}`}
+          className={`text-xs ${status.tone === 'ok' ? 'text-legacy-text-muted' : 'text-legacy-danger'}`}
         >
           {status.message}
         </p>
