@@ -145,7 +145,8 @@ export function SegmentedControl<T extends string | number>({
             aria-checked={selected}
             onClick={() => onChange(option.value)}
             className={[
-              'flex-1 rounded-lg px-2 py-2 text-xs font-medium transition-colors',
+              // 44px minimum: these are dense multi-option rows on a phone.
+              'min-h-11 flex-1 rounded-lg px-2 text-xs font-medium transition-colors',
               selected ? 'bg-brand text-white' : 'text-text-muted hover:bg-surface-hover',
             ].join(' ')}
           >

@@ -6,6 +6,7 @@ import { dayEndInstant, toDayKey } from '@/domain/time/dayKey'
 import { db, ensureInitialised, requestPersistentStorage } from '@/data/db'
 import { dayContextFrom, systemClock } from '@/services/clock'
 import { runRollover, type RolloverOutcome } from '@/services/rolloverService'
+import { ensureDailyFocus } from '@/services/focusService'
 
 interface AppContextValue {
   settings: Settings
@@ -53,6 +54,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     void (async () => {
       const outcome = await runRollover()
+      // Focus is chosen after rollover, so the day's misses are already
+      // reflected in the neglect scores it reads.
+      await ensureDailyFocus()
       if (cancelled) return
       // Only surface it when something actually happened to the user's streaks.
       if (outcome.freezesSpent.length > 0 || outcome.streaksBroken.length > 0) {

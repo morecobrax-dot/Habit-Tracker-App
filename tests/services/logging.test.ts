@@ -62,9 +62,10 @@ describe('logHabit', () => {
     expect(log.outcome).toBe('complete')
     expect(log.isBackdated).toBe(false)
     expect(log.dayKey).toBe('2026-09-02')
-    // Phase 2 awards nothing, and awards are snapshotted rather than recomputed.
-    expect(log.xpAwarded).toBe(0)
-    expect(log.rulesVersion).toBe('none')
+    // A tier-2 completion with no prior history: full base XP, multiplier 1.0.
+    // The award is snapshotted onto the row along with the ruleset that made it.
+    expect(log.xpAwarded).toBe(18)
+    expect(log.rulesVersion).toBe('v1')
   })
 
   it('records the partial kind', async () => {

@@ -1,10 +1,13 @@
 import type { DayKey, HabitLog, LogOutcome, PartialKind } from '@/domain/types'
-import { isCredited, NO_RULES_VERSION } from '@/domain/logs'
+import { isCredited } from '@/domain/logs'
 import { compareDayKeys, isWithinBackdateWindow, toDayKey } from '@/domain/time/dayKey'
 import { isScheduledOn } from '@/domain/schedule'
+import { awardXp, type XpAward } from '@/domain/xp'
+import { DEFAULT_XP_RULES } from '@/domain/rules/xpRules'
 import { db } from '@/data/db'
 import { getHabit } from '@/data/repos/habitRepo'
-import { deleteLog, getLog, upsertLog } from '@/data/repos/logRepo'
+import { deleteLog, getLog, listLogsForHabit, upsertLog } from '@/data/repos/logRepo'
+import { getFocus, setFocusResolution } from '@/data/repos/focusRepo'
 import { getFreezeEvent, refundFreeze } from '@/data/repos/gameStateRepo'
 import { getSettings } from '@/data/repos/settingsRepo'
 import { dayContextFrom, systemClock, type Clock } from '@/services/clock'
@@ -43,6 +46,11 @@ export interface LogHabitResult {
   log: HabitLog
   /** True when a previously spent freeze was returned because of this log. */
   freezeRefunded: boolean
+  /** What this action scored, before the ratchet against any previous award. */
+  award: XpAward
+  /** XP actually added to the running total by this action. Never negative. */
+  xpGained: number
+  wasFocus: boolean
 }
 
 export async function logHabit(
@@ -79,6 +87,36 @@ export async function logHabit(
     throw new LoggingError('That habit is not scheduled on that day.', 'not_scheduled')
   }
 
+  // The focus bonus applies to the day the log is *for*, not the day it was
+  // written: doing yesterday's focus habit late still counts as doing it.
+  const focus = await getFocus(input.dayKey, database)
+  const isFocus = focus?.habitId === input.habitId
+
+  const existing = await getLog(input.habitId, input.dayKey, database)
+  const habitLogs = await listLogsForHabit(input.habitId, database)
+
+  const award = awardXp(
+    {
+      habit,
+      outcome: input.outcome,
+      dayKey: input.dayKey,
+      logs: habitLogs,
+      isFocus,
+      weekStartsOn: settings.weekStartsOn,
+    },
+    DEFAULT_XP_RULES,
+  )
+
+  /*
+   * XP banked for a day ratchets: it can rise but never fall.
+   *
+   * Upgrading a partial to a complete pays the difference. Downgrading a
+   * complete to a skip keeps what was already earned — the system does not
+   * reclaim XP, ever. (Deleting a log via "Undo" does remove its XP, but that
+   * is the user retracting their own entry, not the system taking anything.)
+   */
+  const bankedXp = Math.max(existing?.xpAwarded ?? 0, award.total)
+
   const log = await upsertLog(
     {
       habitId: input.habitId,
@@ -90,14 +128,25 @@ export async function logHabit(
       tz: ctx.timeZone,
       // Backdated means the day being logged is not the day we are in.
       isBackdated: input.dayKey !== today,
-      // Phase 3 fills these in. Awards are snapshotted, never recomputed, so
-      // these rows will honestly stay at zero.
-      wasFocus: false,
-      xpAwarded: 0,
-      rulesVersion: NO_RULES_VERSION,
+      wasFocus: isFocus || (existing?.wasFocus ?? false),
+      xpAwarded: bankedXp,
+      xpBreakdown: award.breakdown,
+      rulesVersion: bankedXp === award.total ? award.rulesVersion : (existing?.rulesVersion ?? award.rulesVersion),
     },
     database,
   )
+
+  if (focus && isFocus) {
+    await setFocusResolution(
+      input.dayKey,
+      input.outcome === 'complete'
+        ? 'completed'
+        : input.outcome === 'partial'
+          ? 'partial'
+          : 'pending',
+      database,
+    )
+  }
 
   // If a freeze was spent covering this day and you have now shown you did the
   // thing, give the token back. Without this, backdating silently costs you a
@@ -110,7 +159,13 @@ export async function logHabit(
     }
   }
 
-  return { log, freezeRefunded }
+  return {
+    log,
+    freezeRefunded,
+    award,
+    xpGained: bankedXp - (existing?.xpAwarded ?? 0),
+    wasFocus: isFocus,
+  }
 }
 
 /**

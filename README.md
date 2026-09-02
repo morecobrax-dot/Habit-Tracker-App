@@ -26,7 +26,7 @@ address in mobile Safari or Chrome, and use "Add to Home Screen".
 | --- | --- | --- |
 | 1 | Data model, storage, habit CRUD, settings, backup | **Done** |
 | 2 | Logging, streaks, freeze tokens, backdating | **Done** |
-| 3 | XP, levels, daily focus | Not started |
+| 3 | XP, levels, daily focus | **Done** |
 | 4 | Dashboard and history UI | Not started |
 | 5 | Polish, animation | Not started |
 
@@ -109,6 +109,57 @@ streak is protected first.
 is idempotent (an installed PWA gets opened constantly) and replays correctly
 after an absence, bounded at 60 days since the outcome beyond that is identical.
 It never settles today.
+
+### XP, levels and daily focus
+
+```
+xp = round(base × completionFactor × consistencyMultiplier) + focusBonus
+```
+
+Every tunable number lives in one `XpRules` object (`domain/rules/xpRules.ts`) as
+plain data. That is the AI seam: a future planning layer emits an `XpRules` value
+and nothing in the domain engine changes. Each log snapshots both its award and
+the `version` that produced it, so changing the numbers cannot rewrite history.
+
+**Consistency, not streak.** A streak multiplier collapses from its maximum to
+1.0 the moment a streak breaks — a ~23% pay cut for one bad day, which a
+loss-averse brain reads as punishment and which bites hardest exactly when the
+user most needs permission to do the two-minute version. The multiplier here
+measures completions over a trailing 14 days instead: missing one day moves it
+from 1.30 to 1.28, and it recovers within days. Expectations are cadence-aware,
+so a Mon/Wed/Fri habit can reach the same cap as a daily one.
+
+**The focus bonus is flat (+25), not multiplicative.** Avoided tasks are usually
+trivial-but-dreaded — make the call, open the letter. A flat bonus means a
+tier-1 habit done at its two-minute minimum outscores a tier-3 habit completed in
+full. The app should pay most for *starting the thing being avoided, at its
+smallest size*. There is a test asserting exactly that inequality.
+
+**Total XP is derived**, summed from `log.xpAwarded`. Level is derived from that.
+Nothing is stored, so nothing can drift.
+
+**XP never falls.** The award banked for a day ratchets: upgrading a partial to a
+complete pays the difference; downgrading to a skip keeps what was earned.
+(Deleting a log with Undo does remove its XP — that is the user retracting their
+own entry, and without it log/undo/re-log would mint XP indefinitely.)
+
+**Daily focus is designed against becoming a nag.** A habit cannot hold focus
+more than two days running, then it is benched for two. The neglect score is
+bounded, so a habit ignored for a year cannot dominate forever. And the card
+never displays a days-avoided counter — neglect drives *selection*, but showing
+it back would turn the mechanic into a daily accusation.
+
+### Deployment
+
+Published to GitHub Pages by `.github/workflows/deploy.yml` on push to `main`, or
+manually via workflow_dispatch. The workflow typechecks, lints and tests before
+building — publishing a failing build would put a broken app on a phone home
+screen, where the service worker then caches it.
+
+`base` is keyed on Vite's `mode`, not `command`, so `vite preview` serves from
+the same subpath production does and is a faithful rehearsal. Dev stays on `/`.
+
+One-time repo setup: **Settings → Pages → Source: GitHub Actions**.
 
 ### Other decisions worth knowing
 

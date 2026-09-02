@@ -184,7 +184,14 @@ export interface FreezeEvent {
 
 export interface GameState {
   id: 'singleton'
-  totalXp: number
+  /**
+   * Total XP is deliberately absent: it is derived by summing `xpAwarded`
+   * across logs (`domain/xp.ts#totalXpFromLogs`). A stored running total would
+   * be a second source of truth that drifts the first time a write half-fails.
+   *
+   * Rows written before this change may still carry a `totalXp` property. It is
+   * a non-indexed field, so nothing reads it and no migration is required.
+   */
   freezeTokens: number
   /** Week of the most recent freeze grant, so grants stay idempotent. */
   lastFreezeGrantWeekKey: WeekKey | null

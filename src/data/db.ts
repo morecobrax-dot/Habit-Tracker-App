@@ -82,7 +82,6 @@ export async function ensureInitialised(instant: number, database: HabitTrackerD
     if (!existingGameState) {
       await database.gameState.add({
         id: 'singleton',
-        totalXp: 0,
         freezeTokens: 0,
         lastFreezeGrantWeekKey: null,
         lastRolloverDayKey: null,

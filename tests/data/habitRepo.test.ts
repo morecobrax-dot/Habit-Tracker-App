@@ -44,8 +44,9 @@ describe('ensureInitialised', () => {
     const settings = await db.settings.get('singleton')
     const game = await db.gameState.get('singleton')
     expect(settings?.dayStartHour).toBe(4)
-    expect(game?.totalXp).toBe(0)
     expect(game?.freezeTokens).toBe(0)
+    // Total XP is deliberately not stored here — it is derived from the logs.
+    expect('totalXp' in (game as object)).toBe(false)
   })
 
   it('is idempotent', async () => {

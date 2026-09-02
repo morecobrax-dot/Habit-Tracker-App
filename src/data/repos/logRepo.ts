@@ -1,4 +1,12 @@
-import type { DayKey, HabitLog, Instant, LogOutcome, PartialKind, TimeZone } from '@/domain/types'
+import type {
+  DayKey,
+  HabitLog,
+  Instant,
+  LogOutcome,
+  PartialKind,
+  TimeZone,
+  XpBreakdown,
+} from '@/domain/types'
 import { NO_RULES_VERSION } from '@/domain/logs'
 import { db, type HabitTrackerDb } from '@/data/db'
 import { newId } from '@/data/id'
@@ -23,6 +31,7 @@ export interface UpsertLogInput {
   isBackdated: boolean
   wasFocus: boolean
   xpAwarded: number
+  xpBreakdown?: XpBreakdown | undefined
   rulesVersion: string
 }
 
@@ -47,6 +56,7 @@ export async function upsertLog(
     }
     if (input.partialKind !== undefined) log.partialKind = input.partialKind
     if (input.note !== undefined && input.note !== '') log.note = input.note
+    if (input.xpBreakdown !== undefined) log.xpBreakdown = input.xpBreakdown
 
     await database.logs.put(log)
     return log
