@@ -1,4 +1,6 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { GEM_IDS, Gem, gemLabel, type GemId } from '@/components/icons/gems'
+import { GemPicker } from '@/components/icons/GemPicker'
 
 /**
  * The design-system swatch page.
@@ -182,6 +184,80 @@ export function StyleGuideRoute() {
           <Swatch name="warning" varName="--color-warning" />
         </div>
       </Section>
+
+      <Section
+        title="Gem icons — both sizes"
+        note="Card size (24px) beside picker size (44px). If a shape loses its silhouette on the left, the facets are too busy and it needs simplifying."
+      >
+        <ul className="flex flex-col divide-y divide-border">
+          {GEM_IDS.map((id) => (
+            <li key={id} className="flex items-center gap-5 py-2.5">
+              <span className="flex w-16 justify-center">
+                <Gem id={id} size={24} />
+              </span>
+              <span className="flex w-16 justify-center">
+                <Gem id={id} size={44} />
+              </span>
+              <span className="text-small text-text-secondary">{gemLabel(id)}</span>
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      <Section
+        title="Gem tones"
+        note="Every gem takes a tone prop. All three map to existing palette tokens — no hex in the component."
+      >
+        <div className="flex flex-col gap-3">
+          {(['gold', 'primary', 'maroon'] as const).map((tone) => (
+            <div key={tone} className="flex items-center gap-3">
+              <span className="w-16 text-micro text-text-secondary">{tone}</span>
+              {(['brilliant', 'hexagon', 'teardrop', 'shield', 'heart'] as const).map((id) => (
+                <Gem key={id} id={id} size={30} tone={tone} />
+              ))}
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section
+        title="Gem on a card"
+        note="Card size in situ, with the completed state's drop glow. Glow appears only when the habit is done today."
+      >
+        <div className="flex flex-col gap-2.5">
+          <div className="flex items-center gap-3 rounded-card border border-border bg-surface p-4">
+            <Gem id="hexagon" size={24} />
+            <span className="text-body text-text-primary">Morning walk</span>
+            <span className="ml-auto text-small text-text-muted">not done</span>
+          </div>
+          <div className="flex items-center gap-3 rounded-card border border-border bg-surface p-4 shadow-glow-subtle">
+            <span className="grid place-items-center rounded-full" style={{ filter: 'drop-shadow(0 0 6px var(--color-gold))' }}>
+              <Gem id="hexagon" size={24} />
+            </span>
+            <span className="text-body text-text-primary">Morning walk</span>
+            <span className="ml-auto text-small text-text-muted">done today</span>
+          </div>
+        </div>
+      </Section>
+
+      <Section
+        title="Icon picker"
+        note="Radio group with roving tabindex. Tab reaches it once; arrows move within it and wrap. Selection shows a ring, a raised surface and a check — never colour alone."
+      >
+        <PickerDemo />
+      </Section>
+    </div>
+  )
+}
+
+function PickerDemo() {
+  const [picked, setPicked] = useState<GemId>('brilliant')
+  return (
+    <div className="flex flex-col gap-3">
+      <GemPicker value={picked} onChange={setPicked} />
+      <p className="text-small text-text-secondary">
+        Selected: <span className="text-text-primary">{gemLabel(picked)}</span>
+      </p>
     </div>
   )
 }

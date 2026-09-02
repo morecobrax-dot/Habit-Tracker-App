@@ -191,16 +191,16 @@ function LevelStrip({
     <div className="flex flex-col gap-2 pt-2">
       <div className="flex items-baseline justify-between gap-3">
         <div className="flex items-baseline gap-2">
-          <span className="text-sm font-semibold tracking-tight text-text">
+          <span className="stat-numerals text-sm text-text">
             Level {level.level}
           </span>
           {flash !== null && (
-            <span className="text-sm font-semibold text-xp" role="status">
+            <span className="stat-numerals text-sm text-xp" role="status">
               +{flash} XP
             </span>
           )}
         </div>
-        <span className="text-xs tabular-nums text-text-faint">
+        <span className="stat-numerals text-xs text-text-faint">
           {level.xpIntoLevel} / {level.xpForNextLevel}
           {freezeTokens > 0 && ` · ${freezeTokens} freeze${freezeTokens === 1 ? '' : 's'}`}
         </span>
@@ -465,7 +465,7 @@ function HabitRow({
           >
             {habit.name}
           </p>
-          <p className="mt-0.5 truncate text-xs text-text-faint">
+          <p className="mt-0.5 truncate text-xs tabular-nums text-text-faint">
             <StreakLabel streak={streak} />
             {frozenToday && ' · freeze used'}
             {log?.outcome === 'skip' && ' · not today'}

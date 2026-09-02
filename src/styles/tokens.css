@@ -54,6 +54,9 @@
    * ==================================================================== */
   --color-primary: #c50337;
   --color-primary-hot: #e83d5d;
+  /* Maroon carries NO TEXT, ever. text-muted measures 3.36:1 on it and even
+   * text-secondary only reaches 4.62:1, so a maroon fill is for chart bases,
+   * muted fills and heat cells — never a surface that words sit on. */
   --color-maroon: #59171b;
 
   /* ======================================================================

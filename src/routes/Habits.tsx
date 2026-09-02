@@ -33,7 +33,7 @@ export function HabitsRoute() {
       <header className="flex items-baseline justify-between pt-2">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Habits</h1>
-          <p className="mt-1 text-sm text-legacy-text-muted">
+          <p className="mt-1 text-sm tabular-nums text-legacy-text-muted">
             {active.length === 0
               ? 'Nothing set up yet'
               : `${active.length} active${archived.length > 0 ? ` · ${archived.length} archived` : ''}`}
@@ -140,7 +140,7 @@ function HabitRow({ habit, archived = false }: { habit: Habit; archived?: boolea
 
         <div className="flex shrink-0 flex-col items-end gap-1">
           {habit.estimatedMinutes !== undefined && (
-            <Badge>{habit.estimatedMinutes} min</Badge>
+            <Badge><span className="tabular-nums">{habit.estimatedMinutes}</span> min</Badge>
           )}
           <Button
             variant="ghost"
