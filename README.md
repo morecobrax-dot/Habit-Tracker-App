@@ -25,7 +25,7 @@ address in mobile Safari or Chrome, and use "Add to Home Screen".
 | Phase | Scope | Status |
 | --- | --- | --- |
 | 1 | Data model, storage, habit CRUD, settings, backup | **Done** |
-| 2 | Logging, streaks, freeze tokens, backdating | Not started |
+| 2 | Logging, streaks, freeze tokens, backdating | **Done** |
 | 3 | XP, levels, daily focus | Not started |
 | 4 | Dashboard and history UI | Not started |
 | 5 | Polish, animation | Not started |
@@ -73,6 +73,42 @@ string representing *your* day, not the calendar's.
 
 Conversion between instants and DayKeys happens in exactly two places: when a log is
 written, and when a date is rendered.
+
+### Streaks and freeze tokens
+
+Three rules, all of which follow from the app's premise rather than from
+convention:
+
+1. **A partial keeps the streak.** If the two-minute version broke your streak,
+   it would be a trap rather than an escape hatch. `skip` does not count — it is
+   bookkeeping that records "consciously declined" as distinct from "never
+   engaged".
+2. **The current period is never a break.** An unlogged today does not end
+   anything; the day is still open. Same for the current week on an x-per-week
+   habit. Only a period that has fully closed can break a streak. Without this
+   the app would spend all day telling you your streak is zero.
+3. **A freeze preserves, it does not increment.** A frozen day keeps the streak
+   intact but adds nothing to it, and the freeze ledger records it, so the UI can
+   say "Tuesday was covered" rather than showing an unbroken streak and quietly
+   lying.
+
+Cadences differ in unit: daily and set-day habits count consecutive *scheduled
+days* (a Mon/Wed/Fri habit does not break on Tuesday), while x-per-week habits
+count consecutive *weeks* that met the target — there is deliberately no mid-week
+deadline to miss.
+
+Tokens are a global pool, granted weekly and spent automatically at rollover.
+Automatic on purpose: a manual "spend a token to save your streak" prompt would
+create an obligation to open the app before midnight, which is the exact
+loss-pressure the app exists to remove. When tokens are scarce, the longest
+streak is protected first.
+
+### Day rollover
+
+`runRollover` settles every day that has closed since the app was last opened. It
+is idempotent (an installed PWA gets opened constantly) and replays correctly
+after an absence, bounded at 60 days since the outcome beyond that is identical.
+It never settles today.
 
 ### Other decisions worth knowing
 

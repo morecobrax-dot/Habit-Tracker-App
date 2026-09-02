@@ -1,5 +1,6 @@
 import { HashRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import { AppProvider, useApp } from '@/state/AppContext'
+import { TodayRoute } from '@/routes/Today'
 import { HabitsRoute } from '@/routes/Habits'
 import { HabitEditorRoute } from '@/routes/HabitEditor'
 import { SettingsRoute } from '@/routes/Settings'
@@ -34,12 +35,13 @@ function Shell() {
     <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col">
       <main className="flex-1 px-4 pt-safe pb-safe-nav">
         <Routes>
-          <Route path="/" element={<Navigate to="/habits" replace />} />
+          <Route path="/" element={<Navigate to="/today" replace />} />
+          <Route path="/today" element={<TodayRoute />} />
           <Route path="/habits" element={<HabitsRoute />} />
           <Route path="/habits/new" element={<HabitEditorRoute />} />
           <Route path="/habits/:id/edit" element={<HabitEditorRoute />} />
           <Route path="/settings" element={<SettingsRoute />} />
-          <Route path="*" element={<Navigate to="/habits" replace />} />
+          <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>
       </main>
       <TabBar />
@@ -52,9 +54,10 @@ function TabBar() {
     <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-ink/95 backdrop-blur">
       <div className="mx-auto flex w-full max-w-lg items-stretch pb-safe">
         {/*
-          Phase 1 has two destinations. Dashboard and History arrive in phase 4;
-          the bar is here now so the layout doesn't shift under the user later.
+          Dashboard and History arrive in phase 4; "Today" is the plain logging
+          screen that phase 4 will grow into the dashboard.
         */}
+        <TabLink to="/today" label="Today" />
         <TabLink to="/habits" label="Habits" />
         <TabLink to="/settings" label="Settings" />
       </div>

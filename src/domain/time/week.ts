@@ -29,6 +29,17 @@ export function weekKey(dayKey: DayKey, weekStartsOn: Weekday): WeekKey {
   return `W${startOfWeek(dayKey, weekStartsOn)}`
 }
 
+/** Inverse of `weekKey`: the DayKey a week key refers to. */
+export function weekKeyToStartDay(key: WeekKey): DayKey {
+  if (!key.startsWith('W')) throw new Error(`Invalid WeekKey: ${JSON.stringify(key)}`)
+  return key.slice(1)
+}
+
+/** True when `dayKey` is the final day of its week. */
+export function isEndOfWeek(dayKey: DayKey, weekStartsOn: Weekday): boolean {
+  return endOfWeek(dayKey, weekStartsOn) === dayKey
+}
+
 /** The seven DayKeys of the week containing `dayKey`, in order. */
 export function daysOfWeek(dayKey: DayKey, weekStartsOn: Weekday): DayKey[] {
   const start = startOfWeek(dayKey, weekStartsOn)

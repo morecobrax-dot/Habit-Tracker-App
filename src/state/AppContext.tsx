@@ -2,10 +2,10 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { DayContext, DayKey, Settings } from '@/domain/types'
 import { DEFAULT_SETTINGS } from '@/domain/types'
-import { toDayKey } from '@/domain/time/dayKey'
-import { dayEndInstant } from '@/domain/time/dayKey'
+import { dayEndInstant, toDayKey } from '@/domain/time/dayKey'
 import { db, ensureInitialised, requestPersistentStorage } from '@/data/db'
 import { dayContextFrom, systemClock } from '@/services/clock'
+import { runRollover, type RolloverOutcome } from '@/services/rolloverService'
 
 interface AppContextValue {
   settings: Settings
@@ -13,6 +13,9 @@ interface AppContextValue {
   /** Today, in the user's reckoning. Re-derived when the day rolls over. */
   today: DayKey
   ready: boolean
+  /** Result of the most recent rollover, for the "while you were away" notice. */
+  lastRollover: RolloverOutcome | null
+  dismissRollover: () => void
 }
 
 const AppCtx = createContext<AppContextValue | null>(null)
@@ -21,12 +24,17 @@ const FALLBACK_SETTINGS: Settings = { ...DEFAULT_SETTINGS, createdAt: 0, updated
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false)
+  const [lastRollover, setLastRollover] = useState<RolloverOutcome | null>(null)
+
+  const settings = useLiveQuery(() => db.settings.get('singleton'), [], undefined)
+  const resolved = settings ?? FALLBACK_SETTINGS
+  const dayContext = useMemo(() => dayContextFrom(resolved), [resolved])
+  const today = useTodayKey(dayContext)
 
   useEffect(() => {
     let cancelled = false
     void (async () => {
       await ensureInitialised(systemClock.now())
-      // Best-effort: reduces the chance the browser evicts the database.
       void requestPersistentStorage()
       if (!cancelled) setReady(true)
     })()
@@ -35,16 +43,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const settings = useLiveQuery(() => db.settings.get('singleton'), [], undefined)
-  const resolved = settings ?? FALLBACK_SETTINGS
-
-  const dayContext = useMemo(() => dayContextFrom(resolved), [resolved])
-
-  const today = useTodayKey(dayContext)
+  /**
+   * Settle closed days on start, and again whenever the day rolls over beneath
+   * an app that was left open. `runRollover` is idempotent, so re-running it is
+   * free — which matters, because StrictMode invokes this twice in development.
+   */
+  useEffect(() => {
+    if (!ready) return
+    let cancelled = false
+    void (async () => {
+      const outcome = await runRollover()
+      if (cancelled) return
+      // Only surface it when something actually happened to the user's streaks.
+      if (outcome.freezesSpent.length > 0 || outcome.streaksBroken.length > 0) {
+        setLastRollover(outcome)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [ready, today])
 
   const value = useMemo<AppContextValue>(
-    () => ({ settings: resolved, dayContext, today, ready }),
-    [resolved, dayContext, today, ready],
+    () => ({
+      settings: resolved,
+      dayContext,
+      today,
+      ready,
+      lastRollover,
+      dismissRollover: () => setLastRollover(null),
+    }),
+    [resolved, dayContext, today, ready, lastRollover],
   )
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>
