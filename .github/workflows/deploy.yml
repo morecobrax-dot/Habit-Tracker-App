@@ -45,7 +45,15 @@ jobs:
       - name: Build
         run: npm run build
 
+      # `enablement: true` turns Pages on via the API if it is not already
+      # enabled, instead of failing with "Get Pages site failed / Not Found" and
+      # requiring someone to click through repository settings first. It is a
+      # no-op once Pages is on. If the token is not permitted to enable Pages
+      # (some org policies forbid it), this still fails clearly and the manual
+      # route — Settings > Pages > Source: GitHub Actions — remains available.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
