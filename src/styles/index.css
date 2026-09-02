@@ -1,0 +1,106 @@
+@import 'tailwindcss';
+
+/**
+ * Design tokens.
+ *
+ * Dark-only for now. A light theme is phase 5 polish; committing to one scheme
+ * keeps this phase's visual surface small and honest.
+ *
+ * The palette is deliberately calm. This app is opened on days when the user is
+ * avoiding something, and a loud interface reads as pressure.
+ */
+@theme {
+  --color-ink: #0b1020;
+  --color-surface: #141b2f;
+  --color-surface-raised: #1c2440;
+  --color-surface-hover: #232c4d;
+  --color-line: #2b3559;
+  --color-line-strong: #3a4670;
+
+  --color-text: #e9edfa;
+  --color-text-muted: #98a3c4;
+  --color-text-faint: #6b769a;
+
+  --color-brand: #6d7cff;
+  --color-brand-strong: #8b97ff;
+  --color-brand-dim: #2a2f5e;
+
+  /* Reserved for XP and level-up in phase 3. */
+  --color-xp: #f5a524;
+
+  --color-danger: #f2555a;
+  --color-danger-dim: #3a1f2a;
+
+  --color-tier-1: #56ccf2;
+  --color-tier-2: #4ade80;
+  --color-tier-3: #fbbf24;
+  --color-tier-4: #fb7185;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-ink);
+    /* Stop iOS from enlarging text when the device rotates. */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-ink);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    /* Overscroll bounce revealing a white void behind the app looks broken. */
+    overscroll-behavior-y: none;
+  }
+
+  /* Tap targets shouldn't flash grey on iOS. */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-strong);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  input,
+  textarea,
+  select {
+    font: inherit;
+    /* 16px minimum stops iOS Safari zooming in when a field is focused. */
+    font-size: max(16px, 1rem);
+  }
+}
+
+@layer utilities {
+  /* Safe-area helpers for the installed PWA. */
+  .pt-safe {
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  .pb-safe-nav {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
