@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from 'react'
 import { GEM_IDS, Gem, gemLabel, type GemId } from '@/components/icons/gems'
 import { GemPicker } from '@/components/icons/GemPicker'
+import { Flame } from '@/components/Flame'
+import { flameTierFor, tierRange, type FlameTier } from '@/domain/flameTier'
 
 /**
  * The design-system swatch page.
@@ -241,11 +243,125 @@ export function StyleGuideRoute() {
       </Section>
 
       <Section
+        title="Streak flame — every tier"
+        note="Hero size (72px) beside inline size (22px). Glow strength climbs with the tier; tier 0 has none, because an unlit flame has earned nothing."
+      >
+        <ul className="flex flex-col divide-y divide-border">
+          {[0, 3, 9, 20, 45, 90].map((streak) => {
+            const tier = flameTierFor(streak) as FlameTier
+            const range = tierRange(tier)
+            return (
+              <li key={streak} className="flex items-center gap-5 py-3">
+                <span className="flex w-20 justify-center">
+                  <Flame streak={streak} size={72} />
+                </span>
+                <span className="flex w-10 justify-center">
+                  <Flame streak={streak} size={22} />
+                </span>
+                <span className="text-small text-text-secondary">
+                  <span className="stat-numerals text-text-primary">{streak}</span>
+                  {' days · tier '}
+                  {tier}
+                  <span className="block text-micro text-text-disabled">
+                    {range.to === null ? `${range.from}+` : `${range.from}-${range.to}`}
+                  </span>
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      </Section>
+
+      <Section
+        title="Flame — tier-up pulse"
+        note="Raise the streak past a boundary to fire the celebration. It runs once, briefly, on transform only, and is suppressed under prefers-reduced-motion."
+      >
+        <FlameDemo />
+      </Section>
+
+      <Section
+        title="Heatmap structure at zero intensity"
+        note="Carried over from step 2. Confirms a sparse week reads as sparse rather than broken."
+      >
+        <HeatmapProbe />
+      </Section>
+
+      <Section
         title="Icon picker"
         note="Radio group with roving tabindex. Tab reaches it once; arrows move within it and wrap. Selection shows a ring, a raised surface and a check — never colour alone."
       >
         <PickerDemo />
       </Section>
+    </div>
+  )
+}
+
+function FlameDemo() {
+  const [streak, setStreak] = useState(6)
+  return (
+    <div className="flex flex-col items-center gap-4">
+      <Flame streak={streak} size={96} />
+      <p className="text-small text-text-secondary">
+        <span className="stat-numerals text-text-primary">{streak}</span> days · tier{' '}
+        {flameTierFor(streak)}
+      </p>
+      <div className="flex w-full gap-2">
+        {[0, 1, 7, 14, 30, 60].map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => setStreak(n)}
+            className="min-h-11 flex-1 rounded-sm border border-border bg-surface text-small text-text-secondary transition-colors hover:border-border-interactive hover:bg-surface-raise focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-hot"
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Two constructions side by side, to settle the step 2 question: does the
+ * grid still read when nothing has been logged?
+ */
+function HeatmapProbe() {
+  const weeks = 12
+  const cells = Array.from({ length: weeks * 7 }, (_, i) => i)
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <p className="mb-2 text-small text-text-primary">
+          On a card (surface) — heat-0 equals the card colour
+        </p>
+        <div className="rounded-card border border-border bg-surface p-3">
+          <div className="grid grid-flow-col grid-rows-7 gap-[3px]">
+            {cells.map((i) => (
+              <div
+                key={i}
+                className="aspect-square w-full rounded-[2px]"
+                style={{ background: 'var(--color-heat-0)' }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+      <div>
+        <p className="mb-2 text-small text-text-primary">
+          On the page (bg-base) — heat-0 sits one step above it
+        </p>
+        <div className="rounded-card bg-bg-base p-3">
+          <div className="grid grid-flow-col grid-rows-7 gap-[3px]">
+            {cells.map((i) => (
+              <div
+                key={i}
+                className="aspect-square w-full rounded-[2px]"
+                style={{ background: 'var(--color-heat-0)' }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

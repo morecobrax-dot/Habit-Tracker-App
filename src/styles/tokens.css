@@ -153,6 +153,22 @@
     0 6px 28px -4px --alpha(var(--color-primary-hot) / 45%),
     0 0 60px -10px --alpha(var(--color-primary-hot) / 35%);
 
+  /* ======================================================================
+   * FLAME GLOW — one per tier, in that tier's own hue.
+   *
+   * Separate from the three primary-hot glow tokens on purpose: the flame is
+   * the sanctioned exception to the red/gold palette, and its glow is the
+   * clearest signal of how far the streak has come. Intensity climbs with the
+   * tier so the rare ones genuinely feel rare — tier 0 has none at all,
+   * because an unlit flame has earned nothing.
+   * ==================================================================== */
+  --drop-shadow-flame-0: 0 0 0 rgb(0 0 0 / 0%);
+  --drop-shadow-flame-1: 0 0 6px --alpha(var(--color-flame-1) / 45%);
+  --drop-shadow-flame-2: 0 0 9px --alpha(var(--color-flame-2) / 55%);
+  --drop-shadow-flame-3: 0 0 13px --alpha(var(--color-flame-3) / 62%);
+  --drop-shadow-flame-4: 0 0 17px --alpha(var(--color-flame-4) / 70%);
+  --drop-shadow-flame-5: 0 0 22px --alpha(var(--color-flame-5) / 78%);
+
   /* Gem glow. Gold rather than primary-hot, because it belongs to the icon
    * rather than to the card: it appears behind a habit's gem only on the day
    * that habit is completed, and nowhere else. */

@@ -115,38 +115,44 @@ old value retained as `text-disabled` for non-text use;
 Legacy palette still in `index.css`, marked for deletion in the final
 step.
 
-### [ ] Step 2 — gold gem icon library
-- [ ] 12–16 gem/crystal shapes as original inline SVG components.
+### [x] Step 2 — gold gem icon library
+Committed as `34911a1` and `99a5488`. Audit in `reports/step-3.md`
+(the heatmap item was closed out there).
+- [x] 12–16 gem/crystal shapes as original inline SVG components.
       Generate from scratch — do not copy or trace any stock asset.
-- [ ] Style: flat geometric facets, gold base fill with a lighter facet
+- [x] Style: flat geometric facets, gold base fill with a lighter facet
       highlight and darker facet shadow, one small white sparkle. No
       photorealism, no gradients beyond two flat facet tones.
-- [ ] Each icon takes a colour prop — gold by default, tintable.
-- [ ] Every icon must read at both sizes it's used at (small on cards,
+- [x] Each icon takes a colour prop — gold by default, tintable.
+- [x] Every icon must read at both sizes it's used at (small on cards,
       larger in the picker). Render both sizes side by side, show me,
       and simplify any that loses its silhouette when small.
-- [ ] Icon picker in the habit create/edit form. Semantic radio group,
+- [x] Icon picker in the habit create/edit form. Semantic radio group,
       arrow-key navigable, accessible names, selected state visible
       without relying on colour alone.
-- [ ] All icons visible at once at phone width, no scrolling. Cut the
+- [x] All icons visible at once at phone width, no scrolling. Cut the
       count rather than adding a scroll area.
-- [ ] Icons on habit cards at consistent size, with a subtle drop glow
+- [x] Icons on habit cards at consistent size, with a subtle drop glow
       only when that habit is completed today.
-- [ ] Sensible default so a habit created without picking one still
+- [x] Sensible default so a habit created without picking one still
       looks right.
-- [ ] Apply `tabular-nums` to all stat display tokens as part of this
+- [x] Apply `tabular-nums` to all stat display tokens as part of this
       step.
-- [ ] Confirm the heatmap grid reads structurally at zero intensity —
+- [x] Confirm the heatmap grid reads structurally at zero intensity —
       grid defined by gaps between cells, not by cell fill, so a sparse
       week looks sparse rather than broken. Report how it's built.
 
-### [ ] Step 3 — the streak flame
+### [x] Step 3 — the streak flame
 The centerpiece of the home page.
 
-- [ ] Inline SVG, simple bold flat art style: clean silhouette, soft
+Committed with `reports/step-3.md`. Tier mapping is a tested pure
+function in `domain/flameTier.ts`; the component owns only appearance.
+Not yet placed on a real screen — that is the streak hero in step 4.
+
+- [x] Inline SVG, simple bold flat art style: clean silhouette, soft
       inner core, smooth curves, subtle dark outline so it reads on dark
       backgrounds. No realistic fire texture.
-- [ ] Colour tier by streak length:
+- [x] Colour tier by streak length:
 
       | Streak | Colour |
       |---|---|
@@ -157,11 +163,11 @@ The centerpiece of the home page.
       | 30–59 | violet → blue |
       | 60+ | teal / cyan (the rare one) |
 
-- [ ] Matching glow per tier; glow intensity scales with tier. Higher
+- [x] Matching glow per tier; glow intensity scales with tier. Higher
       tiers must feel worth chasing.
-- [ ] Gentle flicker: scale-and-opacity loop under 2s, transform and
+- [x] Gentle flicker: scale-and-opacity loop under 2s, transform and
       opacity only, behind a `prefers-reduced-motion` guard.
-- [ ] Brief celebratory pulse when a tier is reached.
+- [x] Brief celebratory pulse when a tier is reached.
 
 ### [ ] Step 4 — home page rebuild
 **Blocked on app phase 2.** Reads real streak data.
@@ -178,6 +184,9 @@ Top to bottom:
       large tap target to complete.
 - [ ] Contribution heatmap, last 12 weeks, maroon-to-red intensity ramp,
       empty days as bare surface cells.
+      **Constraint:** must sit directly on `bg-base`, not inside a
+      `surface` card — `heat-0` equals `surface`, so on a card an empty
+      grid vanishes entirely. Verified in `reports/step-3.md`.
 - [ ] Weekly bar chart of completions, red-to-maroon ramp, soft glow on
       the current day.
 

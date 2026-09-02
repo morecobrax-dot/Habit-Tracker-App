@@ -108,3 +108,61 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* ==========================================================================
+ * FLAME MOTION
+ *
+ * Transform and opacity only — both composite on the GPU, so neither triggers
+ * layout or paint. Everything sits behind a reduced-motion guard: the flicker
+ * is decoration, and someone who has asked for stillness should get a flame
+ * that simply holds its colour.
+ * ======================================================================= */
+
+@keyframes flame-flicker {
+  0%,
+  100% {
+    transform: scaleY(1) scaleX(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scaleY(1.045) scaleX(0.985);
+    opacity: 0.92;
+  }
+}
+
+/* Celebration when a tier is reached. Deliberately brief — it marks the
+ * moment and gets out of the way rather than demanding attention. */
+@keyframes flame-tier-pulse {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.16);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@layer components {
+  .flame-flicker {
+    /* Anchored at the base so the flame licks upward rather than growing
+       from its middle. */
+    transform-origin: 50% 88%;
+    animation: flame-flicker 1.6s var(--ease-out-soft) infinite;
+    will-change: transform, opacity;
+  }
+
+  .flame-pulse {
+    transform-origin: 50% 88%;
+    animation: flame-tier-pulse 620ms var(--ease-spring) 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flame-flicker,
+  .flame-pulse {
+    animation: none;
+  }
+}
