@@ -92,13 +92,25 @@ rulings, not code. Box stays unticked until those are settled.
 - [x] Minimal only: log complete / partial / skipped, backdate within
       the window, see current streak. Plain, no polish.
 
-### [ ] Phase 3 — XP and levels
-- [ ] XP per log based on difficulty, completion type, streak multiplier
+### [x] Phase 3 — XP and levels
+Implemented in `28dc52f`, audited in `reports/phase-3.md`.
+
+Ticked with two notes. The multiplier is *consistency*, not streak, per
+explicit instruction — a streak multiplier drops 1.30 to 1.00 on one bad
+day, which reads as punishment. And the approved worked example was ~3%
+optimistic: the real week produces 499 XP, now pinned as a test rather
+than living in prose.
+
+**Open, not blocking:** the focus bonus is flat while every other term is
+multiplied, so the focus advantage erodes as consistency rises — it wins
+by 1 XP at multiplier 1.00 and loses from 1.10 onward. Proposed one-line
+fix in `reports/phase-3.md`; changing the formula needs approval.
+- [x] XP per log based on difficulty, completion type, streak multiplier
       (capped), and daily-focus bonus.
-- [ ] Level curve: fast early, progressively slower.
-- [ ] Propose the formula and curve with a worked example showing what a
+- [x] Level curve: fast early, progressively slower.
+- [x] Propose the formula and curve with a worked example showing what a
       realistic week produces — get approval before implementing.
-- [ ] Daily focus: surfaces the longest-avoided habit with bonus XP.
+- [x] Daily focus: surfaces the longest-avoided habit with bonus XP.
 
 ---
 
