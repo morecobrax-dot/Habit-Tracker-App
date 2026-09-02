@@ -66,6 +66,37 @@ export type Schedule =
 
 export type HabitStatus = 'active' | 'archived'
 
+/**
+ * Identifier for a habit's gem icon.
+ *
+ * The vocabulary lives in the domain because it is *persisted data*: it is
+ * written to IndexedDB and travels in backups. The SVG that draws each gem
+ * lives in `components/icons/gems.tsx`, which imports this type — never the
+ * other way round, since the domain layer may not depend on UI.
+ */
+export type HabitIconId =
+  | 'brilliant'
+  | 'square'
+  | 'emerald'
+  | 'teardrop'
+  | 'marquise'
+  | 'hexagon'
+  | 'pentagon'
+  | 'diamond'
+  | 'heart'
+  | 'shield'
+  | 'arrow'
+  | 'trillion'
+
+export const HABIT_ICON_IDS: readonly HabitIconId[] = [
+  'brilliant', 'square', 'emerald', 'teardrop', 'marquise', 'hexagon',
+  'pentagon', 'diamond', 'heart', 'shield', 'arrow', 'trillion',
+]
+
+/** Used when a habit has no icon of its own — including every habit that
+ *  existed before icons did. */
+export const DEFAULT_HABIT_ICON: HabitIconId = 'brilliant'
+
 export interface Habit {
   id: string
   name: string
@@ -82,6 +113,13 @@ export interface Habit {
 
   /** Optional time estimate, used later for "what fits in five minutes". */
   estimatedMinutes?: number
+
+  /**
+   * Chosen gem icon. Optional by design: habits created before icons existed
+   * have no value here and fall back to `DEFAULT_HABIT_ICON`. Non-indexed, so
+   * adding it needed no Dexie schema change and no migration.
+   */
+  icon?: HabitIconId
 
   status: HabitStatus
 

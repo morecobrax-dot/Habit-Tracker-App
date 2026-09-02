@@ -4,16 +4,10 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/data/db'
 import { archiveHabit, unarchiveHabit } from '@/data/repos/habitRepo'
 import { describeSchedule } from '@/domain/schedule'
-import { DIFFICULTY_LABELS, type DifficultyTier, type Habit } from '@/domain/types'
+import { DIFFICULTY_LABELS, type Habit } from '@/domain/types'
 import { systemClock } from '@/services/clock'
 import { Badge, Button, EmptyState } from '@/components/ui'
-
-const TIER_COLORS: Record<DifficultyTier, string> = {
-  1: 'var(--color-tier-1)',
-  2: 'var(--color-tier-2)',
-  3: 'var(--color-tier-3)',
-  4: 'var(--color-tier-4)',
-}
+import { Gem, DEFAULT_GEM } from '@/components/icons/gems'
 
 export function HabitsRoute() {
   const [showArchived, setShowArchived] = useState(false)
@@ -111,11 +105,9 @@ function HabitRow({ habit, archived = false }: { habit: Habit; archived?: boolea
       ].join(' ')}
     >
       <div className="flex items-start gap-3 p-4">
-        <span
-          aria-hidden
-          className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
-          style={{ backgroundColor: TIER_COLORS[habit.difficulty] }}
-        />
+        <span className="mt-0.5 shrink-0">
+          <Gem id={habit.icon ?? DEFAULT_GEM} size={24} />
+        </span>
 
         <button
           type="button"

@@ -18,6 +18,8 @@ import {
 import { systemClock } from '@/services/clock'
 import { useApp } from '@/state/AppContext'
 import { Button, Field, SegmentedControl, TextArea, TextInput } from '@/components/ui'
+import { GemPicker } from '@/components/icons/GemPicker'
+import { DEFAULT_HABIT_ICON } from '@/domain/types'
 
 const EMPTY_DRAFT: HabitDraft = {
   name: '',
@@ -25,6 +27,7 @@ const EMPTY_DRAFT: HabitDraft = {
   difficulty: 2,
   schedule: { kind: 'daily' },
   minimumVersion: '',
+  icon: DEFAULT_HABIT_ICON,
 }
 
 const TIER_COLORS: Record<DifficultyTier, string> = {
@@ -63,6 +66,7 @@ export function HabitEditorRoute() {
           schedule: habit.schedule,
           minimumVersion: habit.minimumVersion,
         }
+        loaded.icon = habit.icon ?? DEFAULT_HABIT_ICON
         if (habit.estimatedMinutes !== undefined) loaded.estimatedMinutes = habit.estimatedMinutes
         if (habit.notes !== undefined) loaded.notes = habit.notes
         setDraft(loaded)
@@ -179,6 +183,13 @@ export function HabitEditorRoute() {
             label: DIFFICULTY_LABELS[tier],
             accent: TIER_COLORS[tier],
           }))}
+        />
+      </Field>
+
+      <Field label="Icon" error={errors.icon}>
+        <GemPicker
+          value={draft.icon ?? DEFAULT_HABIT_ICON}
+          onChange={(icon) => patch({ icon })}
         />
       </Field>
 

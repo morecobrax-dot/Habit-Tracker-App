@@ -91,6 +91,7 @@ export async function createHabit(
     habit.estimatedMinutes = normalized.estimatedMinutes
   }
   if (normalized.notes !== undefined) habit.notes = normalized.notes
+  if (normalized.icon !== undefined) habit.icon = normalized.icon
 
   await database.habits.add(habit)
   return habit
@@ -125,6 +126,8 @@ export async function updateHabit(
     else updated.estimatedMinutes = normalized.estimatedMinutes
     if (normalized.notes === undefined) delete updated.notes
     else updated.notes = normalized.notes
+    if (normalized.icon === undefined) delete updated.icon
+    else updated.icon = normalized.icon
 
     await database.habits.put(updated)
     return updated

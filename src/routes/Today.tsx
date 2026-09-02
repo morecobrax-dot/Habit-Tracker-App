@@ -9,6 +9,7 @@ import { systemClock } from '@/services/clock'
 import { useApp } from '@/state/AppContext'
 import { useDayView, type DayEntry } from '@/state/useDayView'
 import { Button, EmptyState } from '@/components/ui'
+import { Gem, DEFAULT_GEM } from '@/components/icons/gems'
 
 /**
  * The screen the app opens on.
@@ -200,7 +201,10 @@ function LevelStrip({
             </span>
           )}
         </div>
-        <span className="stat-numerals text-xs text-text-faint">
+        {/* tabular-nums, not stat-numerals: this string mixes numerals with
+            prose, and stat-numerals' negative tracking closes up the spaces
+            around the separator ("18 / 40 · 2 freezes" reads as "40·2"). */}
+        <span className="text-xs tabular-nums text-text-faint">
           {level.xpIntoLevel} / {level.xpForNextLevel}
           {freezeTokens > 0 && ` · ${freezeTokens} freeze${freezeTokens === 1 ? '' : 's'}`}
         </span>
@@ -450,6 +454,12 @@ function HabitRow({
             />
           </svg>
         </button>
+
+        {/* The gem glows only on the day the habit is credited — glow means
+            "earned", so an untouched habit must not carry it. */}
+        <span className={credited ? 'drop-shadow-gem' : undefined}>
+          <Gem id={habit.icon ?? DEFAULT_GEM} size={24} />
+        </span>
 
         <button
           type="button"

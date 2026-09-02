@@ -6,7 +6,8 @@
  * only exists in a form component is validation that a JSON import walks past.
  */
 
-import type { DifficultyTier, Schedule, Weekday } from '@/domain/types'
+import type { DifficultyTier, HabitIconId, Schedule, Weekday } from '@/domain/types'
+import { HABIT_ICON_IDS } from '@/domain/types'
 
 export interface HabitDraft {
   name: string
@@ -16,6 +17,7 @@ export interface HabitDraft {
   minimumVersion: string
   estimatedMinutes?: number | undefined
   notes?: string | undefined
+  icon?: HabitIconId | undefined
 }
 
 export type HabitFieldErrors = Partial<Record<keyof HabitDraft, string>>
@@ -61,6 +63,12 @@ export function validateHabitDraft(draft: HabitDraft): HabitFieldErrors {
     }
   }
 
+  // An unknown icon id would render as the default anyway, but letting it
+  // through would mean a backup could seed values the picker cannot show.
+  if (draft.icon !== undefined && !HABIT_ICON_IDS.includes(draft.icon)) {
+    errors.icon = 'Unknown icon.'
+  }
+
   if ((draft.notes ?? '').length > NOTES_MAX) {
     errors.notes = `Keep it under ${NOTES_MAX} characters.`
   }
@@ -103,6 +111,7 @@ export function normalizeHabitDraft(draft: HabitDraft): HabitDraft {
   if (draft.estimatedMinutes !== undefined) {
     normalized.estimatedMinutes = draft.estimatedMinutes
   }
+  if (draft.icon !== undefined) normalized.icon = draft.icon
   const notes = draft.notes?.trim()
   if (notes) normalized.notes = notes
   return normalized

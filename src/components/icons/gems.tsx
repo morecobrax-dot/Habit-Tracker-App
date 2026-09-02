@@ -1,4 +1,6 @@
 import { useId } from 'react'
+import type { HabitIconId } from '@/domain/types'
+import { DEFAULT_HABIT_ICON, HABIT_ICON_IDS } from '@/domain/types'
 
 /**
  * Gem icon library — original geometric SVG, drawn from scratch.
@@ -29,22 +31,13 @@ import { useId } from 'react'
  * habit.
  */
 
-export type GemId =
-  | 'brilliant'
-  | 'square'
-  | 'emerald'
-  | 'teardrop'
-  | 'marquise'
-  | 'hexagon'
-  | 'pentagon'
-  | 'diamond'
-  | 'heart'
-  | 'shield'
-  | 'arrow'
-  | 'trillion'
 
-/** Used when a habit has no icon of its own. */
-export const DEFAULT_GEM: GemId = 'brilliant'
+/**
+ * The id vocabulary lives in the domain layer, because it is persisted data.
+ * This module owns only how each id is drawn.
+ */
+export type GemId = HabitIconId
+export const DEFAULT_GEM = DEFAULT_HABIT_ICON
 
 /**
  * Tone families. Each maps to existing palette tokens — no hex lives here, so
@@ -186,7 +179,8 @@ const GEMS: Record<GemId, GemShape> = {
   },
 }
 
-export const GEM_IDS = Object.keys(GEMS) as GemId[]
+/** Ordered by the domain list, so the picker order is stable and data-driven. */
+export const GEM_IDS: readonly GemId[] = HABIT_ICON_IDS
 
 export function gemLabel(id: GemId): string {
   return GEMS[id].label

@@ -153,6 +153,11 @@
     0 6px 28px -4px --alpha(var(--color-primary-hot) / 45%),
     0 0 60px -10px --alpha(var(--color-primary-hot) / 35%);
 
+  /* Gem glow. Gold rather than primary-hot, because it belongs to the icon
+   * rather than to the card: it appears behind a habit's gem only on the day
+   * that habit is completed, and nowhere else. */
+  --drop-shadow-gem: 0 0 5px --alpha(var(--color-gold) / 60%);
+
   /* Non-glow elevation, for surfaces that are raised but not "earned". */
   --shadow-card: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px -12px rgb(0 0 0 / 60%);
 
@@ -201,6 +206,9 @@
    * Numerals as game stats: heavier, tighter, and tabular so a ticking
    * counter does not shift the layout under itself.
    */
+  /* Use on PURE numbers only. The negative tracking closes up word spaces, so
+   * a string mixing numerals and prose ("18 / 40 · 2 freezes") should use
+   * plain `tabular-nums` instead. */
   .stat-numerals {
     font-weight: 700;
     letter-spacing: var(--tracking-stat);

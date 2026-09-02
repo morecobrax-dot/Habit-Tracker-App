@@ -222,6 +222,86 @@ describe('the log table invariant', () => {
   })
 })
 
+describe('habit icons', () => {
+  it('stores a chosen icon', async () => {
+    const habit = await createHabit(
+      { draft: draft({ icon: 'hexagon' }), startDayKey: '2026-09-02', instant: T0 },
+      db,
+    )
+    expect(habit.icon).toBe('hexagon')
+    expect((await getHabit(habit.id, db))?.icon).toBe('hexagon')
+  })
+
+  it('omits the key entirely when no icon is chosen', async () => {
+    // Absent must mean "no key", not a stored undefined — the same rule the
+    // other optional fields follow.
+    const habit = await createHabit(
+      { draft: draft(), startDayKey: '2026-09-02', instant: T0 },
+      db,
+    )
+    expect('icon' in habit).toBe(false)
+  })
+
+  it('rejects an unknown icon id', async () => {
+    await expect(
+      createHabit(
+        { draft: draft({ icon: 'not-a-gem' as 'hexagon' }), startDayKey: '2026-09-02', instant: T0 },
+        db,
+      ),
+    ).rejects.toBeInstanceOf(HabitValidationError)
+  })
+
+  it('can change and clear the icon on edit', async () => {
+    const habit = await createHabit(
+      { draft: draft({ icon: 'shield' }), startDayKey: '2026-09-02', instant: T0 },
+      db,
+    )
+    expect((await updateHabit(habit.id, draft({ icon: 'heart' }), T0 + 1, db)).icon).toBe('heart')
+    expect('icon' in (await updateHabit(habit.id, draft(), T0 + 2, db))).toBe(false)
+  })
+
+  it('imports a pre-icon backup unchanged', async () => {
+    // Habits created before icons existed carry no icon key. They must import
+    // cleanly and fall back to the default at render time — adding the field
+    // required no Dexie schema change, so there is nothing to migrate.
+    await ensureInitialised(T0, db)
+    const legacy = JSON.stringify({
+      format: 'habit-tracker-backup',
+      version: 1,
+      dbVersion: 1,
+      exportedAt: T0,
+      tables: {
+        habits: [
+          {
+            id: 'pre-icon',
+            name: 'Old habit',
+            category: '',
+            difficulty: 2,
+            schedule: { kind: 'daily' },
+            minimumVersion: 'small',
+            status: 'active',
+            startDayKey: '2026-08-01',
+            sortOrder: 1,
+            createdAt: 0,
+            updatedAt: 0,
+          },
+        ],
+        logs: [],
+        dailyFocus: [],
+        freezeEvents: [],
+        gameState: [],
+        settings: [],
+      },
+    })
+    await importBackup(parseBackup(legacy), db)
+
+    const restored = await getHabit('pre-icon', db)
+    expect(restored).toBeDefined()
+    expect(restored?.icon).toBeUndefined()
+    expect(restored?.name).toBe('Old habit')
+  })
+})
+
 describe('backup round trip', () => {
   it('exports and restores the whole database', async () => {
     await ensureInitialised(T0, db)
