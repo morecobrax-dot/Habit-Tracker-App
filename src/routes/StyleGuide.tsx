@@ -262,7 +262,7 @@ export function StyleGuideRoute() {
                   <span className="stat-numerals text-text-primary">{streak}</span>
                   {' days · tier '}
                   {tier}
-                  <span className="block text-micro text-text-disabled">
+                  <span className="block text-micro text-text-secondary">
                     {range.to === null ? `${range.from}+` : `${range.from}-${range.to}`}
                   </span>
                 </span>
@@ -410,7 +410,7 @@ function Swatch({ name, varName }: { name: string; varName: string }) {
         style={{ background: `var(${varName})` }}
       />
       <span className="text-micro text-text-primary">{name}</span>
-      <span className="text-micro text-text-disabled">{varName}</span>
+      <span className="text-micro text-text-secondary">{varName}</span>
     </div>
   )
 }
@@ -441,7 +441,7 @@ function ContrastRow({
           <span
             className="text-micro"
             style={{
-              color: failing ? 'var(--color-danger)' : 'var(--color-text-disabled)',
+              color: failing ? 'var(--color-danger)' : 'var(--color-text-secondary)',
             }}
           >
             {ratios[i]}:1 {failing ? '✕' : '✓'}
@@ -469,7 +469,7 @@ function TypeRow({
       >
         {sample}
       </span>
-      <span className="shrink-0 text-micro text-text-disabled">{token}</span>
+      <span className="shrink-0 text-micro text-text-secondary">{token}</span>
     </div>
   )
 }

@@ -215,11 +215,24 @@ Top to bottom:
 - [ ] Bottom tab navigation, thumb-reachable, clear active state.
 
 ### [ ] Step 6 — cleanup and audit
+Audit portion done in `reports/step-6.md`; the deletion waits on step 4.
+
+Headlines: no hardcoded hex anywhere. 75 legacy references, concentrated
+in `components/ui/index.tsx` — migrate that first and most of the app
+moves at once. Cards render at three different radii (12/16/20px)
+because `rounded-xl` and `rounded-2xl` are Tailwind defaults rather than
+tokens. 37 contrast failures, every one from a legacy token or a
+deliberate demo row; the new palette produces none.
+
+Re-runnable as `audit.mjs` against a dev server.
 - [ ] Delete the legacy palette from `index.css`.
-- [ ] Flag any component still pointing at legacy tokens.
-- [ ] Audit every screen against the tokens file; report anything that
+      **BLOCKED on step 4.** Still load-bearing for 75 references across
+      six files; deleting it now leaves those screens with undefined
+      colours. Unblocked once the screens are migrated.
+- [x] Flag any component still pointing at legacy tokens.
+- [x] Audit every screen against the tokens file; report anything that
       drifted.
-- [ ] Full contrast re-check across all screens.
+- [x] Full contrast re-check across all screens.
 
 ---
 
