@@ -114,12 +114,39 @@ export function SettingsRoute() {
 
       <DataCard />
 
-      <p className="px-1 text-micro leading-relaxed text-text-muted">
-        Everything is stored on this device only. Nothing is uploaded, and there is no account.
-        {' '}
-        {WEEKDAY_NAMES[settings.weekStartsOn]}-start weeks.
-      </p>
+      <footer className="flex flex-col gap-1 px-1">
+        <p className="text-micro leading-relaxed text-text-muted">
+          Everything is stored on this device only. Nothing is uploaded, and there is no account.
+          {' '}
+          {WEEKDAY_NAMES[settings.weekStartsOn]}-start weeks.
+        </p>
+        <BuildStamp />
+      </footer>
     </div>
+  )
+}
+
+/**
+ * Which build this device is actually running.
+ *
+ * Small and last, because it is diagnostic rather than a setting — but present,
+ * because "is my phone on the new version?" is otherwise unanswerable from the
+ * phone. The commit is the deployed SHA; the timestamp disambiguates two builds
+ * of the same commit.
+ */
+function BuildStamp() {
+  const built = new Date(__BUILD_TIME__)
+  // Seconds included on purpose. Two builds of the same commit — a re-run of
+  // the deploy workflow — are otherwise indistinguishable, which defeats the
+  // one job this line has.
+  const stamp = Number.isNaN(built.getTime())
+    ? __BUILD_TIME__
+    : `${built.toISOString().slice(0, 10)} ${built.toISOString().slice(11, 19)} UTC`
+
+  return (
+    <p className="text-micro tabular-nums text-text-muted">
+      Build <span className="text-text-secondary">{__BUILD_COMMIT__}</span> · {stamp}
+    </p>
   )
 }
 
