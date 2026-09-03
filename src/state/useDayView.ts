@@ -3,10 +3,11 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import type { DailyFocus, DayKey, Habit, HabitLog, Weekday } from '@/domain/types'
 import { compareDayKeys } from '@/domain/time/dayKey'
 import { computeStreak, type StreakResult } from '@/domain/streak'
-import { groupLogsByHabit } from '@/domain/logs'
+import { groupLogsByHabit, isCreditedLog } from '@/domain/logs'
 import { isHabitDueOn } from '@/domain/schedule'
 import { awardXp, bestConsistencyMultiplierFor, totalXpFromLogs } from '@/domain/xp'
 import { levelForXp, type LevelState } from '@/domain/level'
+import { summariseToday, type TodayEntry, type TodaySummary } from '@/domain/momentum'
 import { DEFAULT_XP_RULES } from '@/domain/rules/xpRules'
 import { db } from '@/data/db'
 import { useApp } from '@/state/AppContext'
@@ -18,6 +19,13 @@ export interface DayEntry {
   streak: StreakResult
   /** True when a freeze token is holding this day up. */
   frozenToday: boolean
+  /**
+   * Whether this habit has ever been credited.
+   *
+   * Distinguishes "streak paused" from "never started" — a habit with months
+   * behind it must not be told it has not begun. See `describeDormantStreak`.
+   */
+  hasHistory: boolean
 }
 
 export interface DayView {
@@ -27,6 +35,8 @@ export interface DayView {
   /** Everything else due on the selected day. */
   entries: DayEntry[]
   level: LevelState
+  /** The day as a whole: counts, at-risk streaks, best streak still running. */
+  summary: TodaySummary
   /**
    * What the focus bonus is actually worth today, rounded for display.
    *
@@ -81,6 +91,7 @@ export function useDayView(selectedDay: DayKey): DayView {
         focusRecord: undefined,
         entries: [],
         level: levelForXp(0, DEFAULT_XP_RULES),
+        summary: summariseToday({ entries: [], freezeTokens: 0 }),
         focusBonus: DEFAULT_XP_RULES.focusBonus,
         focusBonusBoosted: false,
         freezeTokens: 0,
@@ -111,6 +122,7 @@ export function useDayView(selectedDay: DayKey): DayView {
         // edited: backdating Monday should show the streak you have now.
         streak: computeStreak({ habit, logs, frozenDays, today, weekStartsOn }),
         frozenToday: frozenDays.has(selectedDay),
+        hasHistory: logs.some((entry) => isCreditedLog(entry)),
       }
     }
 
@@ -154,10 +166,30 @@ export function useDayView(selectedDay: DayKey): DayView {
         )
       : DEFAULT_XP_RULES.focusBonus
 
+    /*
+     * Built from every habit due today, focus included — the focus habit is
+     * still one of the day's obligations, and leaving it out would make the
+     * "2 of 4 done" count disagree with what is on screen.
+     */
+    const allDue = focus ? [focus, ...entries] : entries
+    const summary = summariseToday({
+      entries: allDue.map(
+        (entry): TodayEntry => ({
+          habit: entry.habit,
+          done: isCreditedLog(entry.log),
+          resolved: entry.log !== undefined,
+          streak: entry.streak.current,
+          unit: entry.streak.unit,
+        }),
+      ),
+      freezeTokens: data.gameState?.freezeTokens ?? 0,
+    })
+
     return {
       focus,
       focusRecord: data.focusRecord,
       entries,
+      summary,
       level: levelForXp(totalXpFromLogs(data.logs), DEFAULT_XP_RULES),
       focusBonus,
       focusBonusBoosted: focusBonus > DEFAULT_XP_RULES.focusBonus,

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toDayKey } from '@/domain/time/dayKey'
 import { WEEKDAY_NAMES } from '@/domain/schedule'
 import type { Weekday } from '@/domain/types'
@@ -10,6 +10,7 @@ import {
   importBackup,
   parseBackup,
 } from '@/data/backup'
+import { storagePersistence, type StoragePersistence } from '@/data/db'
 import { systemClock } from '@/services/clock'
 import { useApp } from '@/state/AppContext'
 import { Button, Card, Field, SegmentedControl, Select } from '@/components/ui'
@@ -228,6 +229,8 @@ function DataCard() {
         </p>
       </div>
 
+      <StorageStatus />
+
       <div className="flex flex-col gap-2">
         <Button full onClick={() => void doExport()} disabled={busy}>
           Export backup
@@ -261,6 +264,63 @@ function DataCard() {
         Delete all data
       </Button>
     </Card>
+  )
+}
+
+/**
+ * Whether the browser has agreed to keep this app's data.
+ *
+ * The app has asked for persistence since phase 1, but the answer was invisible
+ * — so "is my history actually safe here?" had no answer anywhere in the
+ * product, on an app whose entire storage model is one device with no backup.
+ *
+ * Each state ends in something to do. `best-effort` gets the one action that
+ * genuinely changes the outcome (installing to the home screen usually flips
+ * the browser's answer); `unsupported` gets no advice, because there is none —
+ * only the export that is already the recommendation above.
+ */
+function StorageStatus() {
+  const [state, setState] = useState<StoragePersistence | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void storagePersistence().then((result) => {
+      if (!cancelled) setState(result)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Nothing at all until the answer is known. A default of "at risk" that
+  // corrects itself a frame later is a false alarm about the user's data.
+  if (state === null) return null
+
+  const message: Record<StoragePersistence, string> = {
+    persistent:
+      'This browser has agreed to keep your data. It will not be cleared to free up space.',
+    'best-effort':
+      'Your data is stored but not protected — this browser may clear it to free up space. Installing the app to your home screen usually fixes that.',
+    unsupported: 'This browser cannot promise to keep local data. Export regularly.',
+  }
+
+  return (
+    <div className="rounded-card border border-border bg-surface-raise px-3 py-2.5">
+      <p className="flex items-center gap-2 text-small font-medium text-text-primary">
+        {/* State by shape as well as by colour: a dot that is only ever
+            distinguished by hue fails for anyone who cannot separate the
+            hues. */}
+        <span
+          aria-hidden
+          className={[
+            'h-2 w-2 shrink-0 rounded-full',
+            state === 'persistent' ? 'bg-success' : 'border border-text-disabled',
+          ].join(' ')}
+        />
+        {state === 'persistent' ? 'Storage is protected' : 'Storage is best-effort'}
+      </p>
+      <p className="mt-1 text-micro leading-relaxed text-text-muted">{message[state]}</p>
+    </div>
   )
 }
 

@@ -4,10 +4,11 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/data/db'
 import type { DayKey, HabitLog } from '@/domain/types'
 import { DIFFICULTY_LABELS } from '@/domain/types'
-import { addDays } from '@/domain/time/dayKey'
+import { addDays, diffDays, weekdayOf } from '@/domain/time/dayKey'
 import { startOfWeek } from '@/domain/time/week'
-import { describeSchedule } from '@/domain/schedule'
+import { WEEKDAY_NAMES, describeSchedule } from '@/domain/schedule'
 import { computeStreak } from '@/domain/streak'
+import { describeCadenceStatus, describeLastDone, habitCadence } from '@/domain/cadence'
 import { habitStats } from '@/domain/review'
 import { DEFAULT_XP_RULES } from '@/domain/rules/xpRules'
 import { useApp } from '@/state/AppContext'
@@ -74,7 +75,14 @@ export function HabitDetailRoute() {
 
     const xp = data.logs.reduce((total, entry) => total + (entry.xpAwarded || 0), 0)
 
-    return { habit: data.habit, streak, stats, weeks, xp, logged: data.logs.length }
+    const cadence = habitCadence({
+      habit: data.habit,
+      logs: data.logs,
+      today,
+      weekStartsOn: settings.weekStartsOn,
+    })
+
+    return { habit: data.habit, streak, stats, weeks, xp, cadence, logged: data.logs.length }
   }, [data, today, settings.weekStartsOn])
 
   if (!data) return <DetailSkeleton />
@@ -95,7 +103,7 @@ export function HabitDetailRoute() {
     )
   }
 
-  const { habit, streak, stats, weeks, xp, logged } = view!
+  const { habit, streak, stats, weeks, xp, cadence, logged } = view!
   const dayLabels = weekdayLabels(today, settings.weekStartsOn)
 
   return (
@@ -118,6 +126,8 @@ export function HabitDetailRoute() {
           <Button className="text-small">Edit</Button>
         </Link>
       </header>
+
+      <CadencePanel cadence={cadence} today={today} />
 
       {/* The two-minute version, given real estate rather than buried in a
           form. It is the thing to reach for on a bad day, so it should be
@@ -160,6 +170,57 @@ export function HabitDetailRoute() {
 }
 
 /**
+ * Where this habit stands right now: last done, and what today asks of it.
+ *
+ * These are the two questions someone opening a habit's page actually has, and
+ * before this the page answered neither — it went straight from the name to a
+ * streak number and a heat grid, which is a scoreboard rather than a record.
+ *
+ * Placed above the streak on purpose. "Last done four days ago, on for today"
+ * is orientation; the streak is a score, and a score should not be the first
+ * thing a habit says about itself.
+ *
+ * The gap is stated and then left alone. No "you're slipping", no colour change
+ * as it grows — a long gap is exactly when the page must not become unpleasant
+ * to look at, because the person reading it is already avoiding the thing.
+ */
+function CadencePanel({
+  cadence,
+  today,
+}: {
+  cadence: ReturnType<typeof habitCadence>
+  today: DayKey
+}) {
+  return (
+    <Card className="flex flex-col gap-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="label-caps text-text-secondary">Last done</span>
+        <span className="text-body font-medium text-text-primary">
+          {describeLastDone(cadence.daysSinceLastDone)}
+        </span>
+      </div>
+      <div className="flex items-baseline justify-between gap-3 border-t border-border pt-3">
+        <span className="label-caps text-text-secondary">Today</span>
+        <span className="text-right text-small text-text-muted">
+          {describeCadenceStatus(cadence, nextDueLabel(cadence.nextDue, today))}
+        </span>
+      </div>
+    </Card>
+  )
+}
+
+/**
+ * "tomorrow", or "on Tuesday" — the phrase `describeCadenceStatus` drops into
+ * its sentence. Formatting lives here rather than in the domain, which has no
+ * locale and no opinion about how the app writes dates.
+ */
+function nextDueLabel(nextDue: DayKey | null, today: DayKey): string {
+  if (nextDue === null) return ''
+  if (diffDays(today, nextDue) === 1) return 'tomorrow'
+  return `on ${WEEKDAY_NAMES[weekdayOf(nextDue)]}`
+}
+
+/**
  * The streak, stated once and explained.
  *
  * `frozenInStreak` is surfaced rather than hidden: "never break a streak
@@ -193,7 +254,7 @@ function StreakPanel({ streak }: { streak: ReturnType<typeof computeStreak> }) {
 
 function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
-    <div className="flex flex-col gap-0.5 rounded-card border border-border bg-surface px-3.5 py-3">
+    <div className="surface-raised flex flex-col gap-0.5 rounded-card border border-border bg-surface px-3.5 py-3">
       <p className="label-caps text-text-muted">{label}</p>
       <p className="stat-numerals text-lead text-text-primary">{value}</p>
       <p className="text-micro text-text-muted">{sub}</p>

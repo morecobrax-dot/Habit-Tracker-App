@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { DayKey, LogOutcome, PartialKind } from '@/domain/types'
 import { backdatableDays, diffDays } from '@/domain/time/dayKey'
-import { bestStreak } from '@/domain/history'
 import { LoggingError, logHabit, unlogHabit } from '@/services/loggingService'
 import { ensureDailyFocus } from '@/services/focusService'
 import { systemClock } from '@/services/clock'
@@ -13,6 +12,8 @@ import { Button, EmptyState } from '@/components/ui'
 import { SkeletonBlock } from '@/components/Skeleton'
 import { WeekReview } from '@/components/WeekReview'
 import { Flame } from '@/components/Flame'
+import { TodayCard } from '@/components/TodayCard'
+import { describeDormantStreak } from '@/domain/momentum'
 import { Heatmap, WeekBars } from '@/components/History'
 import { Gem, DEFAULT_GEM } from '@/components/icons/gems'
 
@@ -22,17 +23,19 @@ import { Gem, DEFAULT_GEM } from '@/components/icons/gems'
  * It is built to answer one question — "what should I start right now?" — and
  * the layout enforces that hierarchy.
  *
- * ## Anchor and invitation are not the same thing
+ * ## Three tiers, and only one hero
  *
- * The streak hero is the visual *anchor*: the largest thing on the page, at the
- * top, sized so the eye lands there. The focus card is the most inviting
- * *action*: the only red-filled interactive block on the screen. Those are
- * different jobs, which is why both briefs can be satisfied at once — the flame
- * is big and passive, carrying no buttons and no fill, while the focus card is
- * the only thing that looks like it wants pressing.
+ * The day card states where today stands and what is about to lapse. The focus
+ * card is the invitation — the only red-filled interactive block, and the only
+ * surface carrying the hero glow. The habit list is the quiet work. Depth
+ * follows that order (`lifted`, `hero`, `raised`), so the hierarchy is visible
+ * before a word is read.
  *
- * Getting that backwards would produce a page whose loudest element is a score,
- * which is the framing this product exists to avoid.
+ * The page used to open with a bare flame and a streak count, which on any
+ * missed day became a large grey zero — the biggest thing on screen announcing
+ * a broken streak. No XP was taken, so it passed the letter of "no punishment
+ * mechanics" while breaking its spirit as loudly as the layout allowed. The
+ * headline is now today's progress, which is always actionable.
  *
  * ## Order
  *
@@ -58,14 +61,36 @@ export function TodayRoute() {
   }
 
   const dayLabels = weekdayLabels(today, settings.weekStartsOn)
-  const allEntries = view.focus ? [view.focus, ...view.entries] : view.entries
-  const hero = bestStreak(allEntries)
+
+  /*
+   * One-tap logging of a habit's two-minute version, straight from the day
+   * card. On the day someone is least likely to act, this is the shortest path
+   * the app can offer: no expanding a row, no dialog, no choice to make.
+   */
+  const [quickBusy, setQuickBusy] = useState<string | null>(null)
+  const quickLogMinimum = (habitId: string) => {
+    setQuickBusy(habitId)
+    setError(null)
+    void logHabit(
+      { habitId, dayKey: activeDay, outcome: 'partial', partialKind: 'minimum' },
+      systemClock,
+    )
+      .then((result) => noteGain(result.xpGained))
+      .catch((e) => setError(e instanceof LoggingError ? e.message : 'Could not save that.'))
+      .finally(() => setQuickBusy(null))
+  }
 
   return (
     <div className="flex flex-col gap-6 pb-4">
       <LevelHeader level={view.level} gain={gain} freezeTokens={view.freezeTokens} />
 
-      {!view.loading && view.activeHabitCount > 0 && <StreakHero entry={hero} />}
+      {!view.loading && view.activeHabitCount > 0 && (
+        <TodayCard
+          summary={view.summary}
+          onQuickLog={quickLogMinimum}
+          busyHabitId={quickBusy}
+        />
+      )}
 
       {lastRollover && <RolloverNotice onDismiss={dismissRollover} />}
 
@@ -123,7 +148,7 @@ export function TodayRoute() {
           {view.entries.length > 0 && (
             <section className="flex flex-col gap-2">
               {view.focus && <h2 className="label-caps px-1 text-text-secondary">Also today</h2>}
-              <ul className="overflow-hidden rounded-card border border-border bg-surface">
+              <ul className="surface-raised overflow-hidden rounded-card border border-border bg-surface">
                 {view.entries.map((entry, index) => (
                   <HabitRow
                     key={entry.habit.id}
@@ -141,7 +166,7 @@ export function TodayRoute() {
       )}
 
       {/* Backdating lives below the day's work: available, never in the way. */}
-      {days.length > 1 && !view.loading && (
+      {days.length > 1 && !view.loading && view.activeHabitCount > 0 && (
         <BackdateBar
           days={days}
           today={today}
@@ -329,52 +354,6 @@ function LevelHeader({
 }
 
 /* ------------------------------------------------------------------ */
-/* Streak hero                                                         */
-/* ------------------------------------------------------------------ */
-
-/**
- * The page's visual anchor: the longest streak currently running.
- *
- * Big and passive. It states a fact and offers no action, so it can be the
- * largest thing on the screen without competing with the focus card for the
- * tap. The flame's hue is the reward — see `components/Flame.tsx`.
- *
- * With nothing lit it shows a dormant flame rather than disappearing, so the
- * space it will occupy is visible from day one. The copy in that state is
- * deliberately forward-looking: "today starts it", never "you have no streak".
- */
-function StreakHero({ entry }: { entry: DayEntry | null }) {
-  const streak = entry?.streak.current ?? 0
-  const unit = entry?.streak.unit === 'week' ? 'week' : 'day'
-
-  return (
-    <section className="flex flex-col items-center gap-1 py-1">
-      <Flame streak={streak} size={92} />
-
-      {streak > 0 ? (
-        <>
-          <p className="flex items-baseline gap-2">
-            <span className="stat-numerals text-hero text-text-primary">{streak}</span>
-            <span className="text-body text-text-secondary">
-              {unit}
-              {streak === 1 ? '' : 's'}
-            </span>
-          </p>
-          <p className="max-w-[16rem] truncate text-small text-text-muted">
-            {entry?.habit.name}
-          </p>
-        </>
-      ) : (
-        <>
-          <p className="stat-numerals text-stat text-text-secondary">0</p>
-          <p className="text-small text-text-muted">Today starts it</p>
-        </>
-      )}
-    </section>
-  )
-}
-
-/* ------------------------------------------------------------------ */
 /* Daily focus                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -434,11 +413,13 @@ function FocusCard({
     <section
       className={[
         'relative overflow-hidden rounded-card border p-5 transition-shadow duration-base',
-        // The accent border is what marks this card out, and it strengthens
-        // once earned. Glow only on the completed state: it means "earned".
+        // The one hero surface on the page: a red-lit top edge and a soft
+        // radiance beneath, so the card reads as lit *by* the accent rather
+        // than merely outlined in it. Both states carry depth; only the
+        // completed one carries the glow, because glow means earned.
         done
-          ? 'border-primary-hot/50 bg-surface-raise shadow-glow-medium'
-          : 'border-primary/50 bg-surface-raise',
+          ? 'surface-hero-lit border-primary-hot/55 bg-surface-raise'
+          : 'surface-hero border-primary/50 bg-surface-raise',
       ].join(' ')}
     >
       {celebration.active && (
@@ -695,7 +676,7 @@ function HabitRow({
             {habit.name}
           </p>
           <p className="mt-0.5 truncate text-micro tabular-nums text-text-muted">
-            <StreakLabel streak={streak} />
+            <StreakLabel streak={streak} hasHistory={entry.hasHistory} />
             {frozenToday && ' · freeze used'}
             {/* A skip holds the streak. Saying only "not today" would leave the
                 user guessing whether it cost them something. */}
@@ -714,6 +695,24 @@ function HabitRow({
           top of it. Sharing also happens to be the honest thing to show: the
           streak that flame represents is what just changed.
         */}
+        {/*
+          The two-minute version, one tap, without expanding anything.
+          Previously this was the app's signature move but was two taps deep on
+          every habit except the focus — the escape hatch was hardest to reach
+          on exactly the days it exists for.
+        */}
+        {!credited && !celebration.active && (
+          <button
+            type="button"
+            onClick={() => record('partial', 'minimum')}
+            disabled={busy}
+            aria-label={`Log the two-minute version of ${habit.name}: ${habit.minimumVersion}`}
+            className="min-h-9 shrink-0 rounded-sm border border-border-interactive/60 px-2.5 text-micro font-semibold text-text-secondary transition-all duration-fast hover:border-primary-hot hover:text-text-primary disabled:opacity-40"
+          >
+            2-min
+          </button>
+        )}
+
         <span className="flex min-w-9 shrink-0 items-center justify-end gap-1 pr-1">
           {celebration.active && celebration.xp > 0 ? (
             <span
@@ -739,16 +738,13 @@ function HabitRow({
 
       {expanded && (
         <div className="flex flex-col gap-2 px-3 pb-3">
+          {/* Still spelled out here, because the row's compact button says
+              "2-min" without saying *what* the two minutes are. */}
           {!credited && (
-            <button
-              type="button"
-              onClick={() => record('partial', 'minimum')}
-              disabled={busy}
-              className="flex w-full flex-col items-start gap-0.5 rounded-md border border-border-interactive/50 bg-surface-raise px-3 py-2.5 text-left transition-colors duration-fast hover:border-border-interactive disabled:opacity-50"
-            >
-              <span className="text-micro text-text-muted">Start with just this</span>
-              <span className="text-body text-text-primary">{habit.minimumVersion}</span>
-            </button>
+            <p className="rounded-md border border-border bg-surface-raise px-3 py-2.5 text-small leading-relaxed text-text-secondary">
+              <span className="text-text-muted">Two-minute version:</span>{' '}
+              <span className="text-text-primary">{habit.minimumVersion}</span>
+            </p>
           )}
           <div className="flex gap-2">
             {!credited && (
@@ -898,7 +894,7 @@ function RolloverNotice({ onDismiss }: { onDismiss: () => void }) {
   const { freezesSpent, streaksBroken } = lastRollover
 
   return (
-    <div className="flex items-start gap-3 rounded-card border border-border bg-surface px-3.5 py-3">
+    <div className="surface-raised flex items-start gap-3 rounded-card border border-border bg-surface px-3.5 py-3">
       <div className="flex-1 text-small leading-relaxed text-text-muted">
         {freezesSpent.length > 0 && (
           <p>
@@ -927,7 +923,13 @@ function RolloverNotice({ onDismiss }: { onDismiss: () => void }) {
   )
 }
 
-function StreakLabel({ streak }: { streak: DayEntry['streak'] }) {
+function StreakLabel({
+  streak,
+  hasHistory,
+}: {
+  streak: DayEntry['streak']
+  hasHistory: boolean
+}) {
   const unit = streak.unit === 'week' ? 'week' : 'day'
   const parts: string[] = []
 
@@ -937,7 +939,9 @@ function StreakLabel({ streak }: { streak: DayEntry['streak'] }) {
   if (streak.unit === 'week' && streak.progress.target > 0) {
     parts.push(`${streak.progress.done}/${streak.progress.target} this week`)
   }
-  if (parts.length === 0) parts.push('Not started yet')
+  // A habit with months behind it must not be told it has not begun. See
+  // `domain/momentum.ts`.
+  if (parts.length === 0) parts.push(describeDormantStreak(hasHistory))
 
   return <>{parts.join(' · ')}</>
 }

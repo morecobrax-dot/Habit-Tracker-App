@@ -109,3 +109,27 @@ export async function requestPersistentStorage(): Promise<boolean> {
     return false
   }
 }
+
+/**
+ * Whether this device's data is protected from eviction — three states, not two.
+ *
+ * `unsupported` is genuinely different from `best-effort`: on a browser with no
+ * Storage API there is nothing the user can do, whereas a browser that supports
+ * it and has declined usually grants persistence once the app is installed to
+ * the home screen. Collapsing the two would mean either giving useless advice
+ * or withholding useful advice, depending on which way it collapsed.
+ *
+ * Read-only. The request itself is made once at startup by `AppProvider`;
+ * asking again on every visit to Settings would be a permission prompt the user
+ * did not ask for.
+ */
+export type StoragePersistence = 'persistent' | 'best-effort' | 'unsupported'
+
+export async function storagePersistence(): Promise<StoragePersistence> {
+  if (!('storage' in navigator) || !navigator.storage.persisted) return 'unsupported'
+  try {
+    return (await navigator.storage.persisted()) ? 'persistent' : 'best-effort'
+  } catch {
+    return 'unsupported'
+  }
+}

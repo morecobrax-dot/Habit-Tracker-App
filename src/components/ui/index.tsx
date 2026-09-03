@@ -63,6 +63,14 @@ export function Button({
   )
 }
 
+/**
+ * The ordinary card, at the `raised` depth tier.
+ *
+ * The depth lives here rather than at each call site so that every card in the
+ * app sits at the same height by default — the tiers above it (`lifted`,
+ * `hero`) are then a deliberate choice made by one or two surfaces per screen,
+ * not something a card has to opt into to look finished.
+ */
 export function Card({
   children,
   className = '',
@@ -71,7 +79,9 @@ export function Card({
   className?: string
 }) {
   return (
-    <div className={`rounded-card border border-border bg-surface p-4 ${className}`}>
+    <div
+      className={`surface-raised rounded-card border border-border bg-surface p-4 ${className}`}
+    >
       {children}
     </div>
   )

@@ -415,6 +415,22 @@ function Swatch({ name, varName }: { name: string; varName: string }) {
   )
 }
 
+/**
+ * One token, sampled on all three surfaces with its measured ratio.
+ *
+ * A failing token is shown as a *bar* rather than as words. Two reasons, and
+ * both matter more than the demonstration this used to be:
+ *
+ * - `text-disabled` is defined as non-text-only. Printing its own name in it,
+ *   even to illustrate the failure, is the rule being broken on the page that
+ *   documents the rule.
+ * - `audit.mjs` reads the live DOM, so a deliberate failure is indistinguishable
+ *   from an accidental one. Three permanent entries in the report are how a real
+ *   regression gets scrolled past.
+ *
+ * The failure is still stated — louder, in fact, since the ✕ and the ratio are
+ * now legible.
+ */
 function ContrastRow({
   label,
   varName,
@@ -435,16 +451,30 @@ function ContrastRow({
           className="flex flex-col gap-1 rounded-sm border border-border p-3"
           style={{ background: `var(${bg})` }}
         >
-          <span className="text-small" style={{ color: `var(${varName})` }}>
-            {label}
-          </span>
+          {failing ? (
+            <>
+              <span
+                aria-hidden
+                className="h-4 rounded-xs"
+                style={{ background: `var(${varName})` }}
+              />
+              <span className="text-small text-text-secondary">{label}</span>
+            </>
+          ) : (
+            <span className="text-small" style={{ color: `var(${varName})` }}>
+              {label}
+            </span>
+          )}
+          {/* The verdict is carried by the mark and by weight. Red text is
+              forbidden outright, so a failing ratio cannot be red — which is
+              the same constraint this row exists to document. */}
           <span
-            className="text-micro"
-            style={{
-              color: failing ? 'var(--color-danger)' : 'var(--color-text-secondary)',
-            }}
+            className={[
+              'text-micro',
+              failing ? 'font-semibold text-text-primary' : 'text-text-secondary',
+            ].join(' ')}
           >
-            {ratios[i]}:1 {failing ? '✕' : '✓'}
+            {ratios[i]}:1 {failing ? '✕ fails' : '✓'}
           </span>
         </div>
       ))}

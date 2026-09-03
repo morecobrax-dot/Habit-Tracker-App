@@ -158,7 +158,11 @@ function HabitCard({
     <div
       className={[
         'rounded-card border bg-surface transition-all duration-fast',
-        archived ? 'border-border opacity-55' : 'border-border hover:border-border-interactive/60',
+        // Archived rows deliberately skip the raised depth: a paused habit
+        // should sit back into the page rather than stand on it.
+        archived
+          ? 'border-border opacity-55'
+          : 'surface-raised border-border hover:border-border-interactive/60',
         // Lifted rather than tinted while dragging: the row is being *moved*,
         // not completed, and red would say "earned".
         dragging ? 'border-border-interactive shadow-card' : '',

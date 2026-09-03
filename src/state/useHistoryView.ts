@@ -107,11 +107,24 @@ export function useHistoryView(): HistoryView {
     return {
       weeks,
       thisWeek: weeks[weeks.length - 1] ?? [],
+      /*
+       * Closed days only — the review stops at yesterday.
+       *
+       * Counting today drags the rate down every morning for a reason the user
+       * cannot act on yet: at 8am on Thursday, Thursday's habits are "due and
+       * unmet", so the headline percentage is at its lowest exactly when
+       * someone opens the app to decide what to do. `habitStats` already
+       * excludes the future for this reason; today is the same case, since a
+       * day you have not lived yet is not evidence about you.
+       *
+       * The live state of today is the day card's job, so nothing is lost —
+       * the two questions are simply asked by the two surfaces that own them.
+       */
       review: reviewWeek({
         habits: data.habits,
         logs: data.logs,
         from: currentWeekStart,
-        to: addDays(currentWeekStart, 6),
+        to: addDays(today, -1),
         today,
         factors: DEFAULT_XP_RULES.completionFactors,
         streaks,

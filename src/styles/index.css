@@ -1,6 +1,27 @@
 @import 'tailwindcss';
 @import './tokens.css';
 
+/*
+ * Prose is not code.
+ *
+ * Tailwind v4 scans the whole repository for class candidates and cannot tell
+ * a component from a paragraph about one. Step 6's audit found `--color-ink`
+ * kept alive by a sentence in `reports/step-4.md`; step 6's own report then
+ * did it again by quoting `text-white`, which is how a class this design
+ * system has banned outright stayed reachable in the shipped CSS — documented
+ * as removed, and still there.
+ *
+ * Markdown in this repo is documentation of design decisions, so it names
+ * tokens and classes constantly. Excluding it is the fix; remembering not to
+ * quote a class name is not.
+ *
+ * The path is relative to THIS FILE, not to the project root — `src/styles/`
+ * up two levels. A root-relative glob here silently matches nothing and the
+ * build still succeeds, so if a banned class reappears in the CSS, check this
+ * line before anything else.
+ */
+@source not "../../**/*.md";
+
 /**
  * The legacy pre-overhaul palette used to sit here, kept alive while the
  * screens migrated one at a time. It is gone: `tokens.css` is now the only
@@ -80,6 +101,75 @@
   }
 }
 
+
+/* ==========================================================================
+ * SURFACES
+ *
+ * A flat fill on a near-black ground reads as a hole rather than a card. Each
+ * of these adds a top-down gradient a few percent lighter at the top, which is
+ * what makes a surface look lit from above and sit *on* the page instead of
+ * being cut out of it.
+ *
+ * Deliberately subtle. The gradient is doing structural work, not decoration —
+ * if you can see it as a gradient it is too strong.
+ * ======================================================================= */
+
+@layer components {
+  .surface-raised {
+    background-image: linear-gradient(
+      180deg,
+      --alpha(var(--color-text-primary) / 4%),
+      transparent 42%
+    );
+    box-shadow: var(--shadow-raised);
+  }
+
+  .surface-lifted {
+    background-image: linear-gradient(
+      180deg,
+      --alpha(var(--color-text-primary) / 6%),
+      transparent 48%
+    );
+    box-shadow: var(--shadow-lifted);
+  }
+
+  /** Lifted, and earned. The quiet counterpart to `.surface-hero-lit`. */
+  .surface-lifted-lit {
+    background-image: linear-gradient(
+      180deg,
+      --alpha(var(--color-primary-hot) / 11%),
+      transparent 54%
+    );
+    box-shadow: var(--shadow-lifted-lit);
+  }
+
+  /**
+   * The one hero surface per screen. Its gradient is red rather than white, so
+   * the card reads as lit by the accent — this is the "radiance around the red"
+   * the design direction asks for, kept to a single element so the app never
+   * looks like a gaming UI.
+   */
+  .surface-hero {
+    background-image: linear-gradient(
+      180deg,
+      --alpha(var(--color-primary-hot) / 13%),
+      --alpha(var(--color-primary) / 4%) 46%,
+      transparent 78%
+    );
+    box-shadow: var(--shadow-hero);
+  }
+
+  /** The hero after its action has been taken. Glow means earned. */
+  .surface-hero-lit {
+    background-image: linear-gradient(
+      180deg,
+      --alpha(var(--color-primary-hot) / 20%),
+      --alpha(var(--color-primary) / 7%) 46%,
+      transparent 82%
+    );
+    box-shadow: var(--shadow-hero-lit);
+  }
+}
 
 /* ==========================================================================
  * COMPLETION — the one animation that matters

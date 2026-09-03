@@ -186,6 +186,56 @@
   --shadow-card: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px -12px rgb(0 0 0 / 60%);
 
   /* ======================================================================
+   * DEPTH — three tiers, so a screen has a hierarchy rather than a list of
+   * identically-bordered rectangles.
+   *
+   * Each is a hairline *inset* highlight along the top edge plus a soft drop
+   * shadow. The inset is what does the work: it reads as a lit edge catching
+   * light from above, which is the difference between a card and a div with a
+   * border. On a near-black ground a drop shadow alone is invisible.
+   *
+   * Tier by importance, never by decoration:
+   *   raised  ordinary cards — habit rows, stats, settings groups
+   *   lifted  things the eye should land on second — the day's summary
+   *   hero    the single most important surface on a screen, at most one
+   * ==================================================================== */
+  --shadow-raised:
+    inset 0 1px 0 0 --alpha(var(--color-text-primary) / 5%),
+    0 1px 2px rgb(0 0 0 / 45%),
+    0 10px 24px -16px rgb(0 0 0 / 70%);
+  --shadow-lifted:
+    inset 0 1px 0 0 --alpha(var(--color-text-primary) / 8%),
+    0 2px 4px rgb(0 0 0 / 50%),
+    0 16px 36px -18px rgb(0 0 0 / 80%);
+  /* A lifted surface whose state has been earned. Deliberately quieter than
+   * `hero-lit`: a screen has one hero, so when a second surface also deserves
+   * to look alive it gets the accent edge and a hint of light, not a second
+   * bloom. Two competing glows is how a restrained UI turns into a gaming UI. */
+  --shadow-lifted-lit:
+    inset 0 1px 0 0 --alpha(var(--color-primary-hot) / 20%),
+    0 2px 4px rgb(0 0 0 / 50%),
+    0 16px 36px -18px rgb(0 0 0 / 80%),
+    0 0 28px -14px --alpha(var(--color-primary-hot) / 30%);
+  /* The hero's inset picks up `primary-hot` rather than white: the lit edge is
+   * the same red the glow is made of, so the card reads as lit *by* the accent
+   * rather than merely outlined in it. */
+  --shadow-hero:
+    inset 0 1px 0 0 --alpha(var(--color-primary-hot) / 22%),
+    0 2px 6px rgb(0 0 0 / 55%),
+    0 20px 48px -20px rgb(0 0 0 / 85%),
+    0 0 44px -18px --alpha(var(--color-primary-hot) / 40%);
+  /* The hero once its action is done: same lit edge, with the "earned" glow
+   * layered in. It exists as its own token because `box-shadow` does not merge
+   * across declarations — stacking `shadow-glow-medium` on top of a hero
+   * surface silently erases the depth instead of adding to it. */
+  --shadow-hero-lit:
+    inset 0 1px 0 0 --alpha(var(--color-primary-hot) / 34%),
+    0 2px 6px rgb(0 0 0 / 55%),
+    0 20px 48px -20px rgb(0 0 0 / 85%),
+    0 4px 22px -4px --alpha(var(--color-primary-hot) / 30%),
+    0 0 62px -14px --alpha(var(--color-primary-hot) / 38%);
+
+  /* ======================================================================
    * TYPE
    * One geometric sans. Numbers get weight and negative tracking so they
    * read as game stats rather than prose.
