@@ -66,6 +66,18 @@ export type Schedule =
 
 export type HabitStatus = 'active' | 'archived'
 
+/** A stretch during which a habit was archived. `to: null` means still archived. */
+export interface ArchivedPeriod {
+  from: DayKey
+  to: DayKey | null
+}
+
+/** A cadence and the day it took effect. */
+export interface ScheduleChange {
+  from: DayKey
+  schedule: Schedule
+}
+
 /**
  * Identifier for a habit's gem icon.
  *
@@ -128,6 +140,30 @@ export interface Habit {
    * you missed a habit on days before it existed.
    */
   startDayKey: DayKey
+
+  /**
+   * Stretches during which the habit was archived.
+   *
+   * Archiving is a deliberate pause, not a failure, so days inside these
+   * ranges are treated as not-scheduled: they cannot be missed and they cannot
+   * break a streak. An open range (`to: null`) means currently archived.
+   *
+   * Optional and additive. Habits archived before this existed have no ranges
+   * and keep their previous behaviour, so no migration is required.
+   */
+  archivedPeriods?: ArchivedPeriod[]
+
+  /**
+   * Past cadences, each with the day it took effect.
+   *
+   * `schedule` above is always the *current* cadence. This records what came
+   * before it, so a day in the past is judged by the cadence that was actually
+   * in force then rather than by whatever the habit looks like today.
+   *
+   * Optional and additive: an absent history means the current schedule has
+   * always applied, which is exactly the old behaviour.
+   */
+  scheduleHistory?: ScheduleChange[]
 
   sortOrder: number
   notes?: string

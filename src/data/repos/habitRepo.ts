@@ -1,9 +1,11 @@
-import type { DayKey, Habit, Instant } from '@/domain/types'
+import type { ArchivedPeriod, DayKey, Habit, Instant, ScheduleChange } from '@/domain/types'
 import {
   normalizeHabitDraft,
   validateHabitDraft,
   type HabitDraft,
 } from '@/domain/habitValidation'
+import { sameSchedule } from '@/domain/schedule'
+import { addDays, compareDayKeys } from '@/domain/time/dayKey'
 import { db, type HabitTrackerDb } from '@/data/db'
 import { newId } from '@/data/id'
 
@@ -97,10 +99,60 @@ export async function createHabit(
   return habit
 }
 
+/**
+ * When a change to *when a habit is owed* takes effect.
+ *
+ * Always tomorrow, never today, and this is load-bearing in both directions:
+ *
+ * - Narrowing today (daily → Mon/Wed/Fri on a Tuesday, or archiving) would drop
+ *   today out of the schedule walk. A completion already logged today would
+ *   stop counting and the streak would quietly shrink — a silent streak break
+ *   caused by opening a settings screen.
+ * - Widening today (Mon/Wed/Fri → daily on a Tuesday) would make today owed
+ *   from the moment you saved, so an edit at 11pm creates a miss you never had
+ *   a chance to avoid.
+ *
+ * Today was already underway when the edit happened, so today is judged by the
+ * rules today started with. If the old cadence leaves an unwanted obligation on
+ * that last day, "skip" clears it at no cost.
+ */
+function effectiveFrom(todayKey: DayKey): DayKey {
+  return addDays(todayKey, 1)
+}
+
+/**
+ * The cadence timeline, seeded on first use.
+ *
+ * `scheduleHistory` has to describe the *whole* life of the habit, current
+ * cadence included, or `scheduleFor` would have nothing to return for today. So
+ * the first recorded change also backfills the original cadence, dated to the
+ * day the habit started.
+ */
+function appendScheduleChange(habit: Habit, change: ScheduleChange): ScheduleChange[] {
+  const history =
+    habit.scheduleHistory && habit.scheduleHistory.length > 0
+      ? [...habit.scheduleHistory]
+      : [{ from: habit.startDayKey, schedule: habit.schedule }]
+
+  // Two edits on the same day are one change, not two: overwrite rather than
+  // append, so the timeline never holds two entries with the same `from`.
+  const last = history[history.length - 1]
+  if (last && last.from === change.from) history[history.length - 1] = change
+  else history.push(change)
+
+  return history
+}
+
+export interface HabitEditContext {
+  /** The user's today, for dating archive periods and cadence changes. */
+  todayKey: DayKey
+  instant: Instant
+}
+
 export async function updateHabit(
   id: string,
   draft: HabitDraft,
-  instant: Instant,
+  { todayKey, instant }: HabitEditContext,
   database: HabitTrackerDb = db,
 ): Promise<Habit> {
   const normalized = normalizeHabitDraft(draft)
@@ -121,6 +173,16 @@ export async function updateHabit(
       minimumVersion: normalized.minimumVersion,
       updatedAt: instant,
     }
+
+    // Record the cadence change so past days keep being judged by the cadence
+    // that was actually in force then. Only on a real change: re-saving the
+    // same cadence must not litter the timeline.
+    if (!sameSchedule(existing.schedule, normalized.schedule)) {
+      updated.scheduleHistory = appendScheduleChange(existing, {
+        from: effectiveFrom(todayKey),
+        schedule: normalized.schedule,
+      })
+    }
     // Clearing an optional field means removing the key, not storing undefined.
     if (normalized.estimatedMinutes === undefined) delete updated.estimatedMinutes
     else updated.estimatedMinutes = normalized.estimatedMinutes
@@ -134,28 +196,85 @@ export async function updateHabit(
   })
 }
 
+/**
+ * Archiving is a pause, not a failure.
+ *
+ * The archived stretch is recorded as a dated range so the days inside it can
+ * be treated as not-scheduled: they cannot be missed, cannot burn a freeze
+ * token, and cannot break a streak. Reactivating resumes the streak the habit
+ * had when it was put down, which is the behaviour that makes archiving a safe
+ * thing to do — if pausing cost you your streak, nobody would ever pause, and
+ * the habit would sit there accumulating misses instead.
+ */
 export async function archiveHabit(
   id: string,
-  instant: Instant,
+  { todayKey, instant }: HabitEditContext,
   database: HabitTrackerDb = db,
 ): Promise<void> {
-  await database.habits.update(id, {
-    status: 'archived',
-    archivedAt: instant,
-    updatedAt: instant,
+  await database.transaction('rw', database.habits, async () => {
+    const existing = await database.habits.get(id)
+    if (!existing) throw new Error(`No habit with id ${id}`)
+
+    const periods = [...(existing.archivedPeriods ?? [])]
+    const open = periods.findIndex((period) => period.to === null)
+
+    // An already-open range means archive was somehow called twice; leave the
+    // earlier start alone rather than moving it forward and losing the gap.
+    if (open === -1) periods.push({ from: effectiveFrom(todayKey), to: null })
+
+    const archived: Habit = {
+      ...existing,
+      status: 'archived',
+      archivedPeriods: periods,
+      archivedAt: instant,
+      updatedAt: instant,
+    }
+    await database.habits.put(archived)
   })
 }
 
 export async function unarchiveHabit(
   id: string,
-  instant: Instant,
+  { todayKey, instant }: HabitEditContext,
   database: HabitTrackerDb = db,
 ): Promise<void> {
-  const existing = await database.habits.get(id)
-  if (!existing) throw new Error(`No habit with id ${id}`)
-  const restored: Habit = { ...existing, status: 'active', updatedAt: instant }
-  delete restored.archivedAt
-  await database.habits.put(restored)
+  await database.transaction('rw', database.habits, async () => {
+    const existing = await database.habits.get(id)
+    if (!existing) throw new Error(`No habit with id ${id}`)
+
+    // `to` is exclusive, so closing at today makes today live again — the same
+    // rule as a habit created today.
+    const periods = closeOpenPeriod(existing.archivedPeriods, todayKey)
+
+    const restored: Habit = { ...existing, status: 'active', updatedAt: instant }
+    if (periods.length > 0) restored.archivedPeriods = periods
+    else delete restored.archivedPeriods
+    delete restored.archivedAt
+
+    await database.habits.put(restored)
+  })
+}
+
+/**
+ * Closes the open archived range at `todayKey`.
+ *
+ * A range that never contained a whole day — archived and reactivated before
+ * the pause took effect — is dropped rather than stored, since an empty range
+ * is noise that every reader would then have to reason about.
+ */
+function closeOpenPeriod(
+  existing: readonly ArchivedPeriod[] | undefined,
+  todayKey: DayKey,
+): ArchivedPeriod[] {
+  const periods = [...(existing ?? [])]
+  const open = periods.findIndex((period) => period.to === null)
+  if (open === -1) return periods
+
+  const from = periods[open]!.from
+  if (compareDayKeys(from, todayKey) >= 0) periods.splice(open, 1)
+  else periods[open] = { from, to: todayKey }
+
+  return periods
 }
 
 /**

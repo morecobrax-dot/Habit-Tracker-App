@@ -172,8 +172,10 @@ describe('planRollover — spending', () => {
     expect(result.spends).toEqual([])
   })
 
-  it('does spend when the day was only skipped', () => {
-    // Skip is bookkeeping, not protection.
+  it('spends nothing on a skipped day, and does not break', () => {
+    // A skip preserves on its own. Charging a token for it would make honesty
+    // more expensive than silence and drain the pool on days the user
+    // consciously stepped over rather than genuinely lost.
     const result = plan({
       habits: [habit('a')],
       logs: [log('a', '2026-08-31'), log('a', '2026-09-01', 'skip')],
@@ -181,7 +183,22 @@ describe('planRollover — spending', () => {
       to: '2026-09-01',
       tokens: 2,
     })
-    expect(result.spends).toHaveLength(1)
+    expect(result.spends).toEqual([])
+    expect(result.broken).toEqual([])
+    expect(result.tokensRemaining).toBe(2)
+  })
+
+  it('protects a skipped day even with no tokens left', () => {
+    // The distinguishing property against a freeze: a skip costs nothing, so
+    // an empty pool changes nothing about the outcome.
+    const result = plan({
+      habits: [habit('a')],
+      logs: [log('a', '2026-08-31'), log('a', '2026-09-01', 'skip')],
+      from: '2026-09-01',
+      to: '2026-09-01',
+      tokens: 0,
+    })
+    expect(result.broken).toEqual([])
   })
 
   it('never spends on a habit with no streak to protect', () => {

@@ -99,13 +99,49 @@ describe('a partial keeps the streak', () => {
     expect(result.current).toBe(3)
   })
 
-  it('does not count a skip', () => {
-    // Per the chosen semantics, skip is bookkeeping only: it protects nothing.
+  it('holds the streak across a skip without extending it', () => {
+    // A skip is an honest "not today". It must not break the streak — if it
+    // did, telling the truth would cost exactly as much as ghosting the app,
+    // and avoidance would be the rational move. It must not extend it either:
+    // a streak of 3 has to mean three days you actually showed up for.
     const result = streak(
       [log('2026-08-31'), log('2026-09-01', 'skip'), log('2026-09-02')],
       '2026-09-02',
     )
-    expect(result.current).toBe(1)
+    expect(result.current).toBe(2)
+  })
+
+  it('never lets a skip cost more than doing nothing', () => {
+    // The property that matters, stated directly: for any history, replacing a
+    // missed day with an explicit skip can only help.
+    const ghosted = streak([log('2026-08-31'), log('2026-09-02')], '2026-09-02')
+    const skipped = streak(
+      [log('2026-08-31'), log('2026-09-01', 'skip'), log('2026-09-02')],
+      '2026-09-02',
+    )
+    expect(skipped.current).toBeGreaterThanOrEqual(ghosted.current)
+    expect(ghosted.current).toBe(1)
+  })
+
+  it('does not let a run of skips manufacture a streak', () => {
+    // Skips hold the line, they do not build it. Nothing done means nothing
+    // earned, however diligently it was declared.
+    const result = streak(
+      [log('2026-08-31', 'skip'), log('2026-09-01', 'skip'), log('2026-09-02', 'skip')],
+      '2026-09-02',
+    )
+    expect(result.current).toBe(0)
+    expect(result.longest).toBe(0)
+  })
+
+  it('spends no freeze on a skipped day', () => {
+    // A skip preserves on its own, so `frozenInStreak` stays empty: the token
+    // pool is untouched and the UI has nothing to explain.
+    const result = streak(
+      [log('2026-08-31'), log('2026-09-01', 'skip'), log('2026-09-02')],
+      '2026-09-02',
+    )
+    expect(result.frozenInStreak).toEqual([])
   })
 })
 
@@ -126,11 +162,20 @@ describe('the current day is never a break', () => {
     expect(result.pending).toBe(false)
   })
 
-  it('treats a skip logged today as still open', () => {
-    // You can still change your mind and log it before the day closes.
+  it('treats a skip logged today as answered, not pending', () => {
+    // The user opened the app and gave an answer, so the day is resolved.
+    // Leaving it pending would keep nudging someone who already engaged —
+    // which is the nagging the app is supposed to remove.
     const result = streak([log('2026-08-31'), log('2026-09-01', 'skip')], '2026-09-01')
     expect(result.current).toBe(1)
-    expect(result.pending).toBe(true)
+    expect(result.pending).toBe(false)
+  })
+
+  it('still lets a skipped day be completed later the same day', () => {
+    // Changing your mind must be rewarded, not blocked: overwriting today's
+    // skip with a completion extends the streak normally.
+    const result = streak([log('2026-08-31'), log('2026-09-01')], '2026-09-01')
+    expect(result.current).toBe(2)
   })
 })
 

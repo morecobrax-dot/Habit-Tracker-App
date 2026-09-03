@@ -6,6 +6,7 @@ import { archiveHabit, unarchiveHabit } from '@/data/repos/habitRepo'
 import { describeSchedule } from '@/domain/schedule'
 import { DIFFICULTY_LABELS, type Habit } from '@/domain/types'
 import { systemClock } from '@/services/clock'
+import { useApp } from '@/state/AppContext'
 import { Badge, Button, EmptyState } from '@/components/ui'
 import { Gem, DEFAULT_GEM } from '@/components/icons/gems'
 
@@ -84,14 +85,15 @@ export function HabitsRoute() {
 
 function HabitRow({ habit, archived = false }: { habit: Habit; archived?: boolean }) {
   const navigate = useNavigate()
+  const { today } = useApp()
   const [busy, setBusy] = useState(false)
 
   const toggleArchive = async () => {
     setBusy(true)
     try {
-      const now = systemClock.now()
-      if (archived) await unarchiveHabit(habit.id, now)
-      else await archiveHabit(habit.id, now)
+      const context = { todayKey: today, instant: systemClock.now() }
+      if (archived) await unarchiveHabit(habit.id, context)
+      else await archiveHabit(habit.id, context)
     } finally {
       setBusy(false)
     }

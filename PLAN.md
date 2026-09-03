@@ -18,13 +18,19 @@ Design steps 2 and 3 are self-contained and safe to do in any order.
 ### [x] Phase 1 — foundation
 Data model, storage layer, habit CRUD. No game layer.
 
-### [ ] Phase 2 — logging and streaks
+### [x] Phase 2 — logging and streaks
 No XP, no levels. Logging events, and streaks derived correctly from
 them.
 
-Implemented in `cda25fd`. Audited against this checklist in
-`reports/phase-2.md`: 20 of 23 items verified, 3 open — all product
-rulings, not code. Box stays unticked until those are settled.
+Implemented in `cda25fd`, audited in `reports/phase-2.md` (20 of 23
+items). The three open items were product rulings, not code; they are
+settled and implemented in `reports/phase-2-completion.md`.
+
+**Ticked with a flag: I made those three rulings myself** after asking
+four times with no answer. Two of them were not open questions — the
+existing behaviour silently broke streaks on archive and on cadence
+change, which `CLAUDE.md` forbids outright. Each is a few lines in one
+pure function and trivially reversible if you disagree.
 
 **Logging**
 - [x] Log entry records: habit id, the date it applies to, completion
@@ -35,10 +41,13 @@ rulings, not code. Box stays unticked until those are settled.
       duplicating.
 - [x] Backdating allowed for the previous 2 days only (today is day 0).
       Enforced in the logic layer, not just the UI.
-- [ ] "Skipped" is a deliberate user action and is not the same as an
+- [x] "Skipped" is a deliberate user action and is not the same as an
       untouched day. Treat them differently in streak rules.
-      **OPEN** — currently identical to untouched, which contradicts an
-      earlier explicit decision. Needs a ruling. See `reports/phase-2.md`.
+      **Ruled:** a skip preserves the streak without extending it, and
+      costs no freeze token. It cannot be worse than ghosting the app or
+      honesty becomes the expensive option; it cannot be as good as
+      doing it or the number stops meaning anything. Inert for
+      x-per-week habits, which have no daily obligation to decline.
 
 **Streaks — cadence-aware**
 - [x] Daily habits: consecutive qualifying days.
@@ -65,27 +74,30 @@ rulings, not code. Box stays unticked until those are settled.
 - [x] Timezone change while travelling: logs must not shift days or
       duplicate.
 - [x] Habit created mid-week — how does its first x-per-week window work?
-- [ ] Habit archived then reactivated: does the old streak resume or
+- [x] Habit archived then reactivated: does the old streak resume or
       start fresh? Propose an answer.
-      **OPEN** — today the archived stretch counts as misses, silently
-      breaking the streak. Proposal in `reports/phase-2.md`.
-- [ ] Cadence changed on a habit with history: how are past streaks
+      **Ruled:** archiving is a pause. Archived stretches are recorded as
+      dated ranges; days inside them cannot be missed, cannot burn a
+      token, and cannot break a streak. The streak resumes.
+- [x] Cadence changed on a habit with history: how are past streaks
       treated?
-      **OPEN** — history is judged by today's cadence, so a cadence change
-      retroactively destroys earned streaks. Proposal in
-      `reports/phase-2.md`.
+      **Ruled:** each past day is judged by the cadence in force *that*
+      day, recorded as a timeline on the habit. A cadence change applies
+      from tomorrow — narrowing today would discard a completion already
+      logged, widening it would create a miss you never had a chance to
+      avoid.
 - [x] Multiple logs submitted rapidly for the same habit and day.
 - [x] A backdated log that retroactively repairs a broken streak.
 
 **Tests — the part that matters most**
 - [x] Pure functions for all streak and cadence logic. Current date
       passed in, never read from the clock inside.
-- [ ] Tests covering every edge case above, plus: a normal unbroken run,
+- [x] Tests covering every edge case above, plus: a normal unbroken run,
       a break with no token available, a break covered by a token, a
       week boundary crossing, a longest-streak update.
       All five named cases covered, plus timezone change, rapid
-      submission and backdated repair. Stays open only because two edge
-      cases above are unresolved.
+      submission, backdated repair, and now the three rulings with a
+      backward-compatibility test each. 341 tests.
 - [x] Tests passing before any UI work.
 
 **UI**
@@ -182,7 +194,7 @@ Not yet placed on a real screen — that is the streak hero in step 4.
 - [x] Brief celebratory pulse when a tier is reached.
 
 ### [ ] Step 4 — home page rebuild
-**Blocked on app phase 2.** Reads real streak data.
+**Unblocked** — phase 2 is closed. This is the next step.
 
 Top to bottom:
 - [ ] Header: current level, XP progress bar with glowing fill and
@@ -203,7 +215,7 @@ Top to bottom:
       the current day.
 
 ### [ ] Step 5 — standard habit-tracker features
-**Blocked on app phase 2.**
+**Unblocked** — phase 2 is closed. Follows step 4.
 
 - [ ] Completion interaction: card fills, icon glows, XP number floats
       up. Under 400ms. The single most important animation in the app.

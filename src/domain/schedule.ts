@@ -29,13 +29,79 @@ export function isScheduledOn(schedule: Schedule, dayKey: DayKey): boolean {
 }
 
 /**
- * Whether the habit is live on `dayKey`: scheduled, active, and on or after the
- * day it was created. Archived habits are never due.
+ * The cadence that was in force on a given day.
+ *
+ * `habit.schedule` is always the *current* cadence. Judging history by it would
+ * mean that switching a Mon/Wed/Fri habit to daily retroactively turns every
+ * past Tuesday into a miss and destroys a streak the user legitimately earned —
+ * a silent streak break, which the product rules forbid.
+ *
+ * With no history recorded, the current schedule applies to every day, which is
+ * exactly the behaviour before this existed.
+ */
+export function scheduleFor(habit: Habit, dayKey: DayKey): Schedule {
+  const history = habit.scheduleHistory
+  if (!history || history.length === 0) return habit.schedule
+
+  // Entries are appended in order; find the last one that had taken effect.
+  let effective: Schedule | null = null
+  for (const change of history) {
+    if (compareDayKeys(change.from, dayKey) <= 0) effective = change.schedule
+    else break
+  }
+  // A day before the first recorded change predates any change, so it is
+  // governed by the oldest schedule we know about.
+  return effective ?? history[0]!.schedule
+}
+
+/**
+ * Was the habit archived on this day?
+ *
+ * Archiving is a deliberate pause. Days inside an archived stretch are treated
+ * as not-scheduled, so they cannot be missed and cannot break a streak — the
+ * streak simply resumes when the habit comes back.
+ */
+export function wasArchivedOn(habit: Habit, dayKey: DayKey): boolean {
+  const periods = habit.archivedPeriods
+  if (!periods || periods.length === 0) {
+    // No recorded ranges: fall back to the coarse signal. A habit archived
+    // before ranges existed is only known to be archived *now*.
+    return habit.status === 'archived'
+  }
+  return periods.some(
+    (period) =>
+      compareDayKeys(dayKey, period.from) >= 0 &&
+      (period.to === null || compareDayKeys(dayKey, period.to) < 0),
+  )
+}
+
+/**
+ * Whether the habit is live on `dayKey`: scheduled by the cadence in force
+ * that day, on or after the day it was created, and not paused by archiving.
  */
 export function isHabitDueOn(habit: Habit, dayKey: DayKey): boolean {
-  if (habit.status !== 'active') return false
   if (compareDayKeys(dayKey, habit.startDayKey) < 0) return false
-  return isScheduledOn(habit.schedule, dayKey)
+  if (wasArchivedOn(habit, dayKey)) return false
+  return isScheduledOn(scheduleFor(habit, dayKey), dayKey)
+}
+
+/**
+ * Do two cadences mean the same thing?
+ *
+ * Compared by meaning, not by shape: `specificDays` is order-insensitive, so
+ * re-saving a habit after toggling Friday off and on again is not a cadence
+ * change and must not add a history entry.
+ */
+export function sameSchedule(a: Schedule, b: Schedule): boolean {
+  if (a.kind !== b.kind) return false
+  if (a.kind === 'timesPerWeek' && b.kind === 'timesPerWeek') return a.target === b.target
+  if (a.kind === 'specificDays' && b.kind === 'specificDays') {
+    if (a.days.length !== b.days.length) return false
+    const left = [...a.days].sort((x, y) => x - y)
+    const right = [...b.days].sort((x, y) => x - y)
+    return left.every((day, i) => day === right[i])
+  }
+  return true
 }
 
 /** How many completions a week demands. `null` for cadences with no weekly quota. */
@@ -56,6 +122,11 @@ export function weeklyTarget(schedule: Schedule): number | null {
  */
 export function scheduledDaysBetween(habit: Habit, from: DayKey, to: DayKey): DayKey[] {
   return dayKeyRange(from, to).filter((day) => isHabitDueOn(habit, day))
+}
+
+/** The weekly quota in force on a given day. */
+export function weeklyTargetOn(habit: Habit, dayKey: DayKey): number | null {
+  return weeklyTarget(scheduleFor(habit, dayKey))
 }
 
 /** The days of `dayKey`'s week on which this habit is due. */

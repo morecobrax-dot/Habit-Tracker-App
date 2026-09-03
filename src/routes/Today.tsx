@@ -478,7 +478,9 @@ function HabitRow({
           <p className="mt-0.5 truncate text-xs tabular-nums text-text-faint">
             <StreakLabel streak={streak} />
             {frozenToday && ' · freeze used'}
-            {log?.outcome === 'skip' && ' · not today'}
+            {/* A skip now holds the streak. Saying only "not today" would leave
+                the user guessing whether it cost them something. */}
+            {log?.outcome === 'skip' && ' · not today, streak held'}
             {log?.partialKind === 'minimum' && ' · minimum'}
           </p>
         </button>

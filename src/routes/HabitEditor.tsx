@@ -99,7 +99,7 @@ export function HabitEditorRoute() {
     setSaving(true)
     try {
       const now = systemClock.now()
-      if (id) await updateHabit(id, draft, now)
+      if (id) await updateHabit(id, draft, { todayKey: today, instant: now })
       else await createHabit({ draft, startDayKey: today, instant: now })
       navigate('/habits', { replace: true })
     } finally {

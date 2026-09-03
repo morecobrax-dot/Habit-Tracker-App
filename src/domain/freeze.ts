@@ -13,7 +13,7 @@
 import type { DayKey, GameState, Habit, HabitLog, Settings, Weekday } from '@/domain/types'
 import { addDays, compareDayKeys, diffDays } from '@/domain/time/dayKey'
 import { isEndOfWeek, startOfWeek, weekKey, weekKeyToStartDay, weeksBetween } from '@/domain/time/week'
-import { indexLogsByDay } from '@/domain/logs'
+import { indexLogsByDay, isCreditedLog, isStreakPreservingLog } from '@/domain/logs'
 import { computeStreak, weeklyCompletions } from '@/domain/streak'
 import { isHabitDueOn } from '@/domain/schedule'
 
@@ -178,10 +178,15 @@ export function planRollover(input: RolloverPlanInput): RolloverPlan {
       if (!isHabitDueOn(habit, day)) continue
 
       const log = logs.get(day)
-      if (log && (log.outcome === 'complete' || log.outcome === 'partial')) {
+      if (isCreditedLog(log)) {
         streaks.set(habit.id, streakBefore + 1)
         continue
       }
+      // A deliberate skip is not a miss. It holds the streak where it is and
+      // spends nothing, so the token stays in the pool for a day the user
+      // genuinely lost rather than one they consciously stepped over. Charging
+      // a token here would make honesty cost more than silence.
+      if (isStreakPreservingLog(log)) continue
       if (frozen.has(day)) continue
 
       misses.push({ habit, periodKey: day, streakBefore })
