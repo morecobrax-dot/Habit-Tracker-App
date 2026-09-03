@@ -2,48 +2,14 @@
 @import './tokens.css';
 
 /**
- * ---------------------------------------------------------------------------
- * LEGACY TOKENS — SCHEDULED FOR DELETION
- * ---------------------------------------------------------------------------
- * Everything in the @theme block below is the pre-overhaul palette. It is kept
- * only so the existing screens keep rendering while they are migrated to
- * `tokens.css` one at a time.
+ * The legacy pre-overhaul palette used to sit here, kept alive while the
+ * screens migrated one at a time. It is gone: `tokens.css` is now the only
+ * source of colour, radius, type and motion in the app.
  *
- * Nothing new may reference these. They are deleted in the final step of the
- * design overhaul, and the audit at the end fails if any component still
- * points at them.
+ * What remains in this file is behaviour rather than vocabulary — base
+ * element styles, safe-area helpers, and the keyframes, all of which consume
+ * tokens and define none.
  */
-@theme {
-  --color-ink: #0b1020;
-  --color-legacy-surface: #141b2f;
-  --color-surface-raised: #1c2440;
-  --color-surface-hover: #232c4d;
-  --color-line: #2b3559;
-  --color-line-strong: #3a4670;
-
-  --color-text: #e9edfa;
-  --color-legacy-text-muted: #98a3c4;
-  --color-text-faint: #6b769a;
-
-  --color-brand: #6d7cff;
-  --color-brand-strong: #8b97ff;
-  --color-brand-dim: #2a2f5e;
-
-  /* Reserved for XP and level-up in phase 3. */
-  --color-xp: #f5a524;
-
-  --color-legacy-danger: #f2555a;
-  --color-danger-dim: #3a1f2a;
-
-  --color-tier-1: #56ccf2;
-  --color-tier-2: #4ade80;
-  --color-tier-3: #fbbf24;
-  --color-tier-4: #fb7185;
-
-  /* `--font-sans` is deliberately NOT redeclared here. The new type system in
-   * tokens.css owns it, so Outfit applies app-wide from step 1 — a type scale
-   * that can only be seen on an isolated swatch page is not reviewable. */
-}
 
 @layer base {
   html {

@@ -327,9 +327,18 @@ function ScheduleEditor({
                   onChange({ kind: 'timesPerWeek', target: n })
                 }}
                 className={[
-                  'h-11 flex-1 rounded-lg border text-body font-medium transition-colors',
+                  // 10px is the token for small controls. The 24px step is
+                  // for sheets and hero surfaces; on a 44px button it reads
+                  // as a pill.
+                  //
+                  // The label is the warm off-white text token, never pure
+                  // white — the palette forbids it, and this measures 5.30:1
+                  // on a primary fill. (Naming the pure-white utility here in
+                  // prose would be enough to keep its variable in the built
+                  // CSS: Tailwind scans comments too.)
+                  'h-11 flex-1 rounded-sm border text-body font-medium transition-colors',
                   schedule.target === n
-                    ? 'border-primary bg-primary text-white'
+                    ? 'border-primary bg-primary text-text-primary'
                     : 'border-border bg-surface-raise text-text-secondary hover:bg-surface-raise',
                 ].join(' ')}
               >
@@ -357,9 +366,9 @@ function ScheduleEditor({
                 aria-label={name}
                 onClick={() => toggleDay(day)}
                 className={[
-                  'h-11 flex-1 rounded-lg border text-micro font-medium transition-colors',
+                  'h-11 flex-1 rounded-sm border text-micro font-medium transition-colors',
                   selected
-                    ? 'border-primary bg-primary text-white'
+                    ? 'border-primary bg-primary text-text-primary'
                     : 'border-border bg-surface-raise text-text-secondary hover:bg-surface-raise',
                 ].join(' ')}
               >

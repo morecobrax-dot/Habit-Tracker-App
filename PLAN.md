@@ -281,22 +281,30 @@ reframed. Details below.
       56px, icon plus label, active state carried four ways and never
       by red text.
 
-### [ ] Step 6 — cleanup and audit
-**Next.** Audit portion done in `reports/step-6.md`; steps 4 and 5
-closed everything it depended on, so only the deletion is left.
+### [x] Step 6 — cleanup and audit
+Audited in `reports/step-6.md`. The legacy palette is gone; `tokens.css`
+is the only source of colour, radius, type and motion, and the built CSS
+ships exactly the 35 tokens it declares — equal in both directions.
 
-Headlines: no hardcoded hex anywhere. 75 legacy references, concentrated
-in `components/ui/index.tsx` — migrate that first and most of the app
-moves at once. Cards render at three different radii (12/16/20px)
-because `rounded-xl` and `rounded-2xl` are Tailwind defaults rather than
-tokens. 37 contrast failures, every one from a legacy token or a
-deliberate demo row; the new palette produces none.
+Zero contrast failures across all five real screens. Every rendered
+radius is a token. No hex in any component, and no default Tailwind
+colour, radius or type utility is reachable at all.
 
-Re-runnable as `audit.mjs` against a dev server.
-- [ ] Delete the legacy palette from `index.css`.
-      **Unblocked and now a pure deletion.** Every screen was migrated
-      in step 4; references have been 0 (from 75) since. The `@theme`
-      block has nothing pointing at it.
+**The finding worth keeping:** deleting seventeen tokens shrank the CSS
+by 20 bytes, because sixteen were already tree-shaken. The one still
+shipping was `--color-ink`, kept alive by *prose* — `reports/step-4.md`
+mentions it in a sentence, and Tailwind v4 scans the whole repo for
+class candidates without distinguishing code from documentation. It
+happened a second time within this step when a comment I wrote naming
+`text-white` kept that variable in the build.
+
+Two violations caught: pure white used twice in the habit editor
+(`CLAUDE.md` says warm off-white, never pure white), and the 24px radius
+used on 44px buttons where the 10px small-control step belongs — a real
+token applied to the wrong kind of element, which is the category a
+census of *values* cannot catch.
+
+- [x] Delete the legacy palette from `index.css`.
 - [x] Flag any component still pointing at legacy tokens.
 - [x] Audit every screen against the tokens file; report anything that
       drifted.
