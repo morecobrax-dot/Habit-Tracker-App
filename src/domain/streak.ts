@@ -6,7 +6,7 @@
  * drift, and a streak that silently disagrees with the history behind it
  * destroys confidence in every other number in the app.
  *
- * ## Three rules that follow from the app's premise
+ * ## Four rules that follow from the app's premise
  *
  * 1. **A partial keeps the streak.** If the two-minute version broke your
  *    streak, it would be a trap rather than an escape hatch.
@@ -17,12 +17,16 @@
  * 3. **A freeze preserves, it does not increment.** A frozen day keeps the
  *    streak intact but adds nothing to it. You did not do the thing; you just
  *    do not lose what you built.
+ * 4. **A skip preserves too, and costs nothing.** Tapping "skip" must never be
+ *    worse than ignoring the app, or honesty becomes the expensive option. Like
+ *    a freeze it holds the number without raising it — but it spends no token,
+ *    because the user already told the truth. See `domain/logs.ts`.
  */
 
 import type { DayKey, Habit, HabitLog, Weekday } from '@/domain/types'
 import { addDays, compareDayKeys, maxDayKey } from '@/domain/time/dayKey'
 import { daysOfWeek, startOfWeek } from '@/domain/time/week'
-import { indexLogsByDay, isCreditedLog } from '@/domain/logs'
+import { indexLogsByDay, isCreditedLog, isStreakPreservingLog } from '@/domain/logs'
 import { scheduledDaysBetween } from '@/domain/schedule'
 
 export interface StreakInput {
@@ -75,11 +79,18 @@ function dailyStreak(input: StreakInput): StreakResult {
   let frozenInStreak: DayKey[] = []
 
   for (const day of days) {
-    if (isCreditedLog(byDay.get(day))) {
+    const log = byDay.get(day)
+
+    if (isCreditedLog(log)) {
       current += 1
       if (current > longest) longest = current
       continue
     }
+
+    // Rule 4: an honest "not today" holds the number and spends no token.
+    // Checked before the `today` branch so a skip logged today still reads as
+    // resolved rather than pending — the user has answered the question.
+    if (isStreakPreservingLog(log)) continue
 
     // Rule 2: today is still open, so it can neither extend nor break.
     if (day === today) {
@@ -116,6 +127,14 @@ function dailyStreak(input: StreakInput): StreakResult {
  * There is deliberately no per-day obligation. Within a week you are either on
  * pace or not yet done, never late — which is the point of offering this
  * cadence at all.
+ *
+ * Rule 4 (skip preserves) therefore does not apply here, and this is the one
+ * place a skip is inert. A skip declines *the obligation for the period it
+ * lands in*; a day-scoped skip has no day-scoped obligation to decline when the
+ * quota is weekly. Letting one tap on Monday absolve a whole week would be
+ * wildly out of proportion to what it absolves on a daily habit — and the
+ * cadence already carries its own slack, since a 3×/week habit can miss four
+ * days and still be perfect. A whole week off is what freeze tokens are for.
  */
 function weeklyStreak(input: StreakInput, target: number): StreakResult {
   const { habit, logs, frozenDays, today, weekStartsOn } = input

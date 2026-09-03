@@ -18,6 +18,8 @@ import {
 import { systemClock } from '@/services/clock'
 import { useApp } from '@/state/AppContext'
 import { Button, Field, SegmentedControl, TextArea, TextInput } from '@/components/ui'
+import { GemPicker } from '@/components/icons/GemPicker'
+import { DEFAULT_HABIT_ICON } from '@/domain/types'
 
 const EMPTY_DRAFT: HabitDraft = {
   name: '',
@@ -25,13 +27,26 @@ const EMPTY_DRAFT: HabitDraft = {
   difficulty: 2,
   schedule: { kind: 'daily' },
   minimumVersion: '',
+  icon: DEFAULT_HABIT_ICON,
 }
 
+/**
+ * Difficulty accent dots, as a maroon-to-hot ramp rather than a colour per tier.
+ *
+ * The old four-hue set came from the legacy palette and said nothing: four
+ * unrelated colours read as four categories, not as an ordered scale. Running
+ * up the red ramp says "heavier" without a legend — and because these are 6px
+ * dots beside a text label, they reinforce the label rather than being the only
+ * carrier of the meaning.
+ *
+ * It starts at `maroon` rather than at the bottom of the heat ramp: `heat-1` is
+ * two steps off the card colour and a dot that dark simply reads as absent.
+ */
 const TIER_COLORS: Record<DifficultyTier, string> = {
-  1: 'var(--color-tier-1)',
-  2: 'var(--color-tier-2)',
-  3: 'var(--color-tier-3)',
-  4: 'var(--color-tier-4)',
+  1: 'var(--color-maroon)',
+  2: 'var(--color-heat-3)',
+  3: 'var(--color-primary)',
+  4: 'var(--color-primary-hot)',
 }
 
 export function HabitEditorRoute() {
@@ -63,6 +78,7 @@ export function HabitEditorRoute() {
           schedule: habit.schedule,
           minimumVersion: habit.minimumVersion,
         }
+        loaded.icon = habit.icon ?? DEFAULT_HABIT_ICON
         if (habit.estimatedMinutes !== undefined) loaded.estimatedMinutes = habit.estimatedMinutes
         if (habit.notes !== undefined) loaded.notes = habit.notes
         setDraft(loaded)
@@ -95,7 +111,7 @@ export function HabitEditorRoute() {
     setSaving(true)
     try {
       const now = systemClock.now()
-      if (id) await updateHabit(id, draft, now)
+      if (id) await updateHabit(id, draft, { todayKey: today, instant: now })
       else await createHabit({ draft, startDayKey: today, instant: now })
       navigate('/habits', { replace: true })
     } finally {
@@ -113,12 +129,12 @@ export function HabitEditorRoute() {
     navigate('/habits', { replace: true })
   }
 
-  if (loading) return <p className="py-8 text-sm text-text-faint">Loading…</p>
+  if (loading) return <p className="py-8 text-body text-text-muted">Loading…</p>
 
   if (notFound) {
     return (
       <div className="flex flex-col items-start gap-4 py-8">
-        <p className="text-sm text-text-muted">That habit no longer exists.</p>
+        <p className="text-body text-text-secondary">That habit no longer exists.</p>
         <Button onClick={() => navigate('/habits', { replace: true })}>Back to habits</Button>
       </div>
     )
@@ -133,7 +149,7 @@ export function HabitEditorRoute() {
       }}
     >
       <header className="flex items-center justify-between pt-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
+        <h1 className="text-title font-semibold tracking-tight">
           {isEditing ? 'Edit habit' : 'New habit'}
         </h1>
         <Button variant="ghost" onClick={() => navigate(-1)}>
@@ -179,6 +195,13 @@ export function HabitEditorRoute() {
             label: DIFFICULTY_LABELS[tier],
             accent: TIER_COLORS[tier],
           }))}
+        />
+      </Field>
+
+      <Field label="Icon" error={errors.icon}>
+        <GemPicker
+          value={draft.icon ?? DEFAULT_HABIT_ICON}
+          onChange={(icon) => patch({ icon })}
         />
       </Field>
 
@@ -304,17 +327,17 @@ function ScheduleEditor({
                   onChange({ kind: 'timesPerWeek', target: n })
                 }}
                 className={[
-                  'h-11 flex-1 rounded-lg border text-sm font-medium transition-colors',
+                  'h-11 flex-1 rounded-lg border text-body font-medium transition-colors',
                   schedule.target === n
-                    ? 'border-brand bg-brand text-white'
-                    : 'border-line bg-surface-raised text-text-muted hover:bg-surface-hover',
+                    ? 'border-primary bg-primary text-white'
+                    : 'border-border bg-surface-raise text-text-secondary hover:bg-surface-raise',
                 ].join(' ')}
               >
                 {n}
               </button>
             ))}
           </div>
-          <p className="text-xs leading-relaxed text-text-faint">
+          <p className="text-micro leading-relaxed text-text-muted">
             No particular day — you choose when. The streak counts consecutive weeks you hit the
             target, so there's no mid-week deadline to miss.
           </p>
@@ -334,10 +357,10 @@ function ScheduleEditor({
                 aria-label={name}
                 onClick={() => toggleDay(day)}
                 className={[
-                  'h-11 flex-1 rounded-lg border text-xs font-medium transition-colors',
+                  'h-11 flex-1 rounded-lg border text-micro font-medium transition-colors',
                   selected
-                    ? 'border-brand bg-brand text-white'
-                    : 'border-line bg-surface-raised text-text-muted hover:bg-surface-hover',
+                    ? 'border-primary bg-primary text-white'
+                    : 'border-border bg-surface-raise text-text-secondary hover:bg-surface-raise',
                 ].join(' ')}
               >
                 {name.slice(0, 2)}

@@ -1,0 +1,255 @@
+/**
+ * DESIGN TOKENS — the single source of truth for the visual system.
+ *
+ * Everything visual lives here: colour, radius, shadow, glow, spacing, type.
+ * Components must never contain a raw hex value, a raw px radius, or a
+ * hand-rolled box-shadow. If something cannot be expressed with a token, the
+ * token set is wrong and should be extended here rather than worked around.
+ *
+ * Declared in Tailwind v4's `@theme`, so every entry becomes BOTH a CSS custom
+ * property (`var(--color-surface)`) and a utility class (`bg-surface`). One
+ * definition, two ways to consume it, no drift between them.
+ *
+ * ---------------------------------------------------------------------------
+ * CONTRAST
+ * ---------------------------------------------------------------------------
+ * Every text/background pair in this file was measured (WCAG 2.1 relative
+ * luminance). Results are recorded next to each token. The one failure found in
+ * the supplied palette — `text-muted` at 2.88-3.10:1 — is documented at its
+ * definition along with the corrected value.
+ *
+ * ---------------------------------------------------------------------------
+ * COLOUR DISCIPLINE — three families, strictly contained
+ * ---------------------------------------------------------------------------
+ * Red     structure: fills, borders, glows, active states. Never body text.
+ * Gold    habit icons and earned moments only. Never text, never buttons.
+ * Flame   the streak reward ladder only — inside the flame silhouette and its
+ *         glow, nowhere else. This is the one place the palette broadens
+ *         beyond red/gold, and it is contained on purpose: the widening hue
+ *         range *is* the reward signal.
+ */
+
+/* Self-hosted so the app keeps its typography offline. */
+@import '@fontsource-variable/outfit';
+
+@theme static {
+  /* ======================================================================
+   * SURFACES
+   * Warm-shifted near-black. Never pure #000: it smears on OLED and makes
+   * glow read as cheap haze rather than light.
+   * ==================================================================== */
+  --color-bg-base: #0a0509;
+  --color-surface: #14090e;
+  --color-surface-raise: #1e0c13;
+  --color-border: #2e1219;
+
+  /* Borders that carry meaning rather than decoration — input outlines,
+   * focus rings, anything whose edge IS the affordance. `--color-border` is
+   * 1.13:1 against surface, which is fine for a decorative hairline but too
+   * faint to define a control (WCAG 1.4.11 wants 3:1). Measured 3.13:1. */
+  --color-border-interactive: #8a5058;
+
+  /* ======================================================================
+   * BRAND
+   * ==================================================================== */
+  --color-primary: #c50337;
+  --color-primary-hot: #e83d5d;
+  /* Maroon carries NO TEXT, ever. text-muted measures 3.36:1 on it and even
+   * text-secondary only reaches 4.62:1, so a maroon fill is for chart bases,
+   * muted fills and heat cells — never a surface that words sit on. */
+  --color-maroon: #59171b;
+
+  /* ======================================================================
+   * GOLD — habit icons and level/achievement moments ONLY.
+   * Never body text, never button fills.
+   * ==================================================================== */
+  --color-gold: #ffc94a;
+  --color-gold-light: #ffe9a8;
+  --color-gold-deep: #a67813; /* facet shadow on gem icons */
+
+  /* ======================================================================
+   * TEXT
+   * Contrast measured against bg-base / surface / surface-raise.
+   * ==================================================================== */
+  --color-text-primary: #f5edef; /* 17.57 / 16.97 / 16.33 — pass */
+  --color-text-secondary: #a89296; /*  6.95 /  6.71 /  6.46 — pass */
+
+  /* CORRECTED. The supplied #6E585D measures 3.10 / 2.99 / 2.88 — below the
+   * 4.5:1 floor on every surface, so it could not legally hold text. Lifted
+   * to the nearest value on the same warm hue that clears it everywhere:
+   * 5.05 / 4.88 / 4.70. Note it still measures 3.36:1 on a maroon fill, so
+   * use text-secondary inside maroon. */
+  --color-text-muted: #94787e;
+
+  /* The original value, retained for non-text use only — decorative rules,
+   * disabled glyphs, chart gridlines. Never put words in this colour. */
+  --color-text-disabled: #6e585d;
+
+  /* On a primary fill: text-primary measures 5.30:1 — pass. */
+
+  /* ======================================================================
+   * STATE
+   * ==================================================================== */
+  --color-success: #3fb27f;
+  --color-danger: #e8455f;
+  --color-warning: #d99a2b;
+
+  /* ======================================================================
+   * FLAME TIERS — the streak reward ladder.
+   * Each tier is a silhouette colour plus a lighter inner core. Hue widens
+   * and cools as the streak grows, so higher tiers read as rarer.
+   * ==================================================================== */
+  --color-flame-0: #4a4247; /* unlit  — 0 days */
+  --color-flame-0-core: #6e6469;
+  --color-flame-1: #ff5a1f; /* orange — 1-6 */
+  --color-flame-1-core: #ffc15e;
+  --color-flame-2: #e1173d; /* red    — 7-13 */
+  --color-flame-2-core: #ff6f87;
+  --color-flame-3: #ff2d95; /* magenta— 14-29 */
+  --color-flame-3-core: #ff87c4;
+  --color-flame-4: #6b4dff; /* violet — 30-59 */
+  --color-flame-4-core: #9fa8ff;
+  --color-flame-5: #12c7c7; /* teal   — 60+ */
+  --color-flame-5-core: #6fe9e4;
+
+  /* ======================================================================
+   * HEATMAP RAMP — maroon to red, empty days are bare surface.
+   * ==================================================================== */
+  --color-heat-0: #14090e;
+  --color-heat-1: #3a1016;
+  --color-heat-2: #59171b;
+  --color-heat-3: #8d0a2b;
+  --color-heat-4: #c50337;
+
+  /* ======================================================================
+   * RADIUS — one card radius everywhere, no exceptions.
+   *
+   * The `initial` clears Tailwind's built-in radius scale before ours is
+   * declared. Without it `rounded-xl` and `rounded-2xl` survive from the
+   * default theme, and step 6's audit found cards rendering at 12px, 16px AND
+   * 20px across the app because those two were reachable by habit. Clearing
+   * the namespace makes a non-token radius a build-time impossibility rather
+   * than something to keep catching in review.
+   * ==================================================================== */
+  --radius-*: initial;
+  --radius-xs: 0.375rem; /*  6px  chips, swatches */
+  --radius-sm: 0.625rem; /* 10px  inputs, small controls */
+  --radius-md: 0.875rem; /* 14px  buttons */
+  --radius-card: 1.25rem; /* 20px  every card */
+  --radius-lg: 1.5rem; /* 24px  sheets, hero surfaces */
+  --radius-full: 9999px;
+
+  /* ======================================================================
+   * GLOW — exactly three intensities, all built from primary-hot.
+   *
+   * Glow means "alive or earned". Permitted on: completed habit cards, the
+   * active streak flame, the XP bar fill, the level-up moment, primary
+   * button hover. Never on static text, inactive cards, plain borders,
+   * containers, or navigation.
+   *
+   * If more than roughly a quarter of a screen is glowing, it is overdone.
+   * ==================================================================== */
+  --shadow-glow-subtle:
+    0 0 0 1px --alpha(var(--color-primary-hot) / 10%),
+    0 2px 12px -2px --alpha(var(--color-primary-hot) / 18%);
+  --shadow-glow-medium:
+    0 0 0 1px --alpha(var(--color-primary-hot) / 16%),
+    0 4px 20px -2px --alpha(var(--color-primary-hot) / 30%),
+    0 0 40px -8px --alpha(var(--color-primary-hot) / 22%);
+  --shadow-glow-strong:
+    0 0 0 1px --alpha(var(--color-primary-hot) / 26%),
+    0 6px 28px -4px --alpha(var(--color-primary-hot) / 45%),
+    0 0 60px -10px --alpha(var(--color-primary-hot) / 35%);
+
+  /* ======================================================================
+   * FLAME GLOW — one per tier, in that tier's own hue.
+   *
+   * Separate from the three primary-hot glow tokens on purpose: the flame is
+   * the sanctioned exception to the red/gold palette, and its glow is the
+   * clearest signal of how far the streak has come. Intensity climbs with the
+   * tier so the rare ones genuinely feel rare — tier 0 has none at all,
+   * because an unlit flame has earned nothing.
+   * ==================================================================== */
+  --drop-shadow-flame-0: 0 0 0 rgb(0 0 0 / 0%);
+  --drop-shadow-flame-1: 0 0 6px --alpha(var(--color-flame-1) / 45%);
+  --drop-shadow-flame-2: 0 0 9px --alpha(var(--color-flame-2) / 55%);
+  --drop-shadow-flame-3: 0 0 13px --alpha(var(--color-flame-3) / 62%);
+  --drop-shadow-flame-4: 0 0 17px --alpha(var(--color-flame-4) / 70%);
+  --drop-shadow-flame-5: 0 0 22px --alpha(var(--color-flame-5) / 78%);
+
+  /* Gem glow. Gold rather than primary-hot, because it belongs to the icon
+   * rather than to the card: it appears behind a habit's gem only on the day
+   * that habit is completed, and nowhere else. */
+  --drop-shadow-gem: 0 0 5px --alpha(var(--color-gold) / 60%);
+
+  /* Non-glow elevation, for surfaces that are raised but not "earned". */
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px -12px rgb(0 0 0 / 60%);
+
+  /* ======================================================================
+   * TYPE
+   * One geometric sans. Numbers get weight and negative tracking so they
+   * read as game stats rather than prose.
+   * ==================================================================== */
+  --font-sans:
+    'Outfit Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    sans-serif;
+
+  /* Same `initial` trick as the radius scale, for the same reason: with
+   * Tailwind's built-in sizes still reachable, `text-sm` and `text-xs` get
+   * typed by habit and the app quietly grows a second type scale alongside
+   * this one. Step 4's audit found exactly that. Clearing the namespace makes
+   * every size below the only sizes that exist. */
+  --text-*: initial;
+  --text-micro: 0.6875rem; /* 11px — tiny labels; the ONLY place caps allowed */
+  --text-micro--line-height: 1rem;
+  --text-small: 0.8125rem; /* 13px — secondary text */
+  --text-small--line-height: 1.125rem;
+  --text-body: 0.9375rem; /* 15px — default */
+  --text-body--line-height: 1.375rem;
+  --text-lead: 1.0625rem; /* 17px — card titles */
+  --text-lead--line-height: 1.5rem;
+  --text-title: 1.375rem; /* 22px — screen titles */
+  --text-title--line-height: 1.75rem;
+  --text-stat: 2rem; /* 32px — XP, level */
+  --text-stat--line-height: 2.25rem;
+  --text-hero: 3.5rem; /* 56px — the streak day count */
+  --text-hero--line-height: 3.5rem;
+
+  --tracking-stat: -0.03em;
+  --tracking-label: 0.08em;
+
+  /* ======================================================================
+   * MOTION
+   * ==================================================================== */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 140ms;
+  --duration-base: 240ms;
+  --duration-slow: 380ms;
+}
+
+/* ==========================================================================
+ * Semantic helpers built from the tokens above.
+ * ======================================================================= */
+@layer components {
+  /**
+   * Numerals as game stats: heavier, tighter, and tabular so a ticking
+   * counter does not shift the layout under itself.
+   */
+  /* Use on PURE numbers only. The negative tracking closes up word spaces, so
+   * a string mixing numerals and prose ("18 / 40 · 2 freezes") should use
+   * plain `tabular-nums` instead. */
+  .stat-numerals {
+    font-weight: 700;
+    letter-spacing: var(--tracking-stat);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /** The only sanctioned use of capitals, and only at --text-micro. */
+  .label-caps {
+    font-size: var(--text-micro);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+}

@@ -162,9 +162,38 @@ describe('backdating', () => {
     ).rejects.toMatchObject({ code: 'not_scheduled' })
   })
 
-  it('rejects an archived habit', async () => {
+  it('rejects a day inside an archived stretch', async () => {
     const habit = await setup()
-    await archiveHabit(habit.id, at(2026, 9, 2), db)
+    // Archived on the 1st, so the pause covers the 2nd onward.
+    await archiveHabit(habit.id, { todayKey: '2026-09-01', instant: at(2026, 9, 1) }, db)
+    await expect(
+      logHabit(
+        { habitId: habit.id, dayKey: '2026-09-02', outcome: 'complete' },
+        fixedClock(at(2026, 9, 2)),
+        db,
+      ),
+    ).rejects.toMatchObject({ code: 'archived_habit' })
+  })
+
+  it('still accepts the day the habit was archived on', async () => {
+    // The pause starts tomorrow, so today is still live. If this were refused,
+    // archiving would leave behind a day that is owed but impossible to log —
+    // a guaranteed miss the user cannot prevent.
+    const habit = await setup()
+    await archiveHabit(habit.id, { todayKey: '2026-09-02', instant: at(2026, 9, 2) }, db)
+    const result = await logHabit(
+      { habitId: habit.id, dayKey: '2026-09-02', outcome: 'complete' },
+      fixedClock(at(2026, 9, 2)),
+      db,
+    )
+    expect(result.log.outcome).toBe('complete')
+  })
+
+  it('rejects every day for a habit archived before ranges existed', async () => {
+    // Backward compatibility: no recorded ranges means the status flag is all
+    // we know, and it applies to every day — the previous behaviour exactly.
+    const habit = await setup()
+    await db.habits.update(habit.id, { status: 'archived' })
     await expect(
       logHabit(
         { habitId: habit.id, dayKey: '2026-09-02', outcome: 'complete' },

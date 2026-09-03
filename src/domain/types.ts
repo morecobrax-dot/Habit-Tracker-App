@@ -66,6 +66,49 @@ export type Schedule =
 
 export type HabitStatus = 'active' | 'archived'
 
+/** A stretch during which a habit was archived. `to: null` means still archived. */
+export interface ArchivedPeriod {
+  from: DayKey
+  to: DayKey | null
+}
+
+/** A cadence and the day it took effect. */
+export interface ScheduleChange {
+  from: DayKey
+  schedule: Schedule
+}
+
+/**
+ * Identifier for a habit's gem icon.
+ *
+ * The vocabulary lives in the domain because it is *persisted data*: it is
+ * written to IndexedDB and travels in backups. The SVG that draws each gem
+ * lives in `components/icons/gems.tsx`, which imports this type — never the
+ * other way round, since the domain layer may not depend on UI.
+ */
+export type HabitIconId =
+  | 'brilliant'
+  | 'square'
+  | 'emerald'
+  | 'teardrop'
+  | 'marquise'
+  | 'hexagon'
+  | 'pentagon'
+  | 'diamond'
+  | 'heart'
+  | 'shield'
+  | 'arrow'
+  | 'trillion'
+
+export const HABIT_ICON_IDS: readonly HabitIconId[] = [
+  'brilliant', 'square', 'emerald', 'teardrop', 'marquise', 'hexagon',
+  'pentagon', 'diamond', 'heart', 'shield', 'arrow', 'trillion',
+]
+
+/** Used when a habit has no icon of its own — including every habit that
+ *  existed before icons did. */
+export const DEFAULT_HABIT_ICON: HabitIconId = 'brilliant'
+
 export interface Habit {
   id: string
   name: string
@@ -83,6 +126,13 @@ export interface Habit {
   /** Optional time estimate, used later for "what fits in five minutes". */
   estimatedMinutes?: number
 
+  /**
+   * Chosen gem icon. Optional by design: habits created before icons existed
+   * have no value here and fall back to `DEFAULT_HABIT_ICON`. Non-indexed, so
+   * adding it needed no Dexie schema change and no migration.
+   */
+  icon?: HabitIconId
+
   status: HabitStatus
 
   /**
@@ -90,6 +140,30 @@ export interface Habit {
    * you missed a habit on days before it existed.
    */
   startDayKey: DayKey
+
+  /**
+   * Stretches during which the habit was archived.
+   *
+   * Archiving is a deliberate pause, not a failure, so days inside these
+   * ranges are treated as not-scheduled: they cannot be missed and they cannot
+   * break a streak. An open range (`to: null`) means currently archived.
+   *
+   * Optional and additive. Habits archived before this existed have no ranges
+   * and keep their previous behaviour, so no migration is required.
+   */
+  archivedPeriods?: ArchivedPeriod[]
+
+  /**
+   * Past cadences, each with the day it took effect.
+   *
+   * `schedule` above is always the *current* cadence. This records what came
+   * before it, so a day in the past is judged by the cadence that was actually
+   * in force then rather than by whatever the habit looks like today.
+   *
+   * Optional and additive: an absent history means the current schedule has
+   * always applied, which is exactly the old behaviour.
+   */
+  scheduleHistory?: ScheduleChange[]
 
   sortOrder: number
   notes?: string

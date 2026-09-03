@@ -29,6 +29,10 @@ const draft = (overrides: Partial<HabitDraft> = {}): HabitDraft => ({
   ...overrides,
 })
 
+/** The day the repo tests operate on, and the edit context built from it. */
+const TODAY = '2026-09-02'
+const ctx = (instant: number, todayKey = TODAY) => ({ todayKey, instant })
+
 let db: HabitTrackerDb
 let dbCounter = 0
 
@@ -105,7 +109,12 @@ describe('createHabit', () => {
 describe('updateHabit', () => {
   it('applies edits and bumps updatedAt', async () => {
     const habit = await createHabit({ draft: draft(), startDayKey: '2026-09-02', instant: T0 }, db)
-    const updated = await updateHabit(habit.id, draft({ name: 'Evening walk', difficulty: 3 }), T0 + 5000, db)
+    const updated = await updateHabit(
+      habit.id,
+      draft({ name: 'Evening walk', difficulty: 3 }),
+      ctx(T0 + 5000),
+      db,
+    )
 
     expect(updated.name).toBe('Evening walk')
     expect(updated.difficulty).toBe(3)
@@ -117,7 +126,7 @@ describe('updateHabit', () => {
     // startDayKey and createdAt are deliberately not editable: moving them
     // retroactively changes which days count as missed.
     const habit = await createHabit({ draft: draft(), startDayKey: '2026-09-02', instant: T0 }, db)
-    const updated = await updateHabit(habit.id, draft({ name: 'Changed' }), T0 + 5000, db)
+    const updated = await updateHabit(habit.id, draft({ name: 'Changed' }), ctx(T0 + 5000), db)
     expect(updated.startDayKey).toBe('2026-09-02')
     expect(updated.sortOrder).toBe(habit.sortOrder)
   })
@@ -129,21 +138,21 @@ describe('updateHabit', () => {
     )
     expect(habit.estimatedMinutes).toBe(20)
 
-    const updated = await updateHabit(habit.id, draft(), T0 + 1000, db)
+    const updated = await updateHabit(habit.id, draft(), ctx(T0 + 1000), db)
     expect('estimatedMinutes' in updated).toBe(false)
     expect('notes' in updated).toBe(false)
   })
 
   it('rejects invalid edits without touching the stored row', async () => {
     const habit = await createHabit({ draft: draft(), startDayKey: '2026-09-02', instant: T0 }, db)
-    await expect(updateHabit(habit.id, draft({ name: '' }), T0, db)).rejects.toBeInstanceOf(
+    await expect(updateHabit(habit.id, draft({ name: '' }), ctx(T0), db)).rejects.toBeInstanceOf(
       HabitValidationError,
     )
     expect((await getHabit(habit.id, db))?.name).toBe('Morning walk')
   })
 
   it('throws for an unknown id', async () => {
-    await expect(updateHabit('nope', draft(), T0, db)).rejects.toThrow(/No habit/)
+    await expect(updateHabit('nope', draft(), ctx(T0), db)).rejects.toThrow(/No habit/)
   })
 })
 
@@ -151,20 +160,157 @@ describe('archiving', () => {
   it('moves a habit between the active and archived lists', async () => {
     const habit = await createHabit({ draft: draft(), startDayKey: '2026-09-02', instant: T0 }, db)
 
-    await archiveHabit(habit.id, T0 + 1000, db)
+    await archiveHabit(habit.id, ctx(T0 + 1000), db)
     expect(await listActiveHabits(db)).toHaveLength(0)
     expect(await listArchivedHabits(db)).toHaveLength(1)
     expect((await getHabit(habit.id, db))?.archivedAt).toBe(T0 + 1000)
 
-    await unarchiveHabit(habit.id, T0 + 2000, db)
+    await unarchiveHabit(habit.id, ctx(T0 + 2000), db)
     expect(await listActiveHabits(db)).toHaveLength(1)
     expect('archivedAt' in (await getHabit(habit.id, db))!).toBe(false)
   })
 
   it('preserves the habit and its history', async () => {
     const habit = await createHabit({ draft: draft(), startDayKey: '2026-09-02', instant: T0 }, db)
-    await archiveHabit(habit.id, T0 + 1000, db)
+    await archiveHabit(habit.id, ctx(T0 + 1000), db)
     expect(await getHabit(habit.id, db)).toBeDefined()
+  })
+
+  it('records the archived stretch as a dated range', async () => {
+    const habit = await createHabit({ draft: draft(), startDayKey: '2026-09-02', instant: T0 }, db)
+
+    // The pause starts tomorrow: today was already underway and may already
+    // hold a completion, which archiving must not silently discard.
+    await archiveHabit(habit.id, ctx(T0 + 1000), db)
+    expect((await getHabit(habit.id, db))?.archivedPeriods).toEqual([
+      { from: '2026-09-03', to: null },
+    ])
+
+    await unarchiveHabit(habit.id, ctx(T0 + 2000, '2026-09-10'), db)
+    expect((await getHabit(habit.id, db))?.archivedPeriods).toEqual([
+      { from: '2026-09-03', to: '2026-09-10' },
+    ])
+  })
+
+  it('records a second pause without disturbing the first', async () => {
+    const habit = await createHabit({ draft: draft(), startDayKey: '2026-09-02', instant: T0 }, db)
+    await archiveHabit(habit.id, ctx(T0, '2026-09-02'), db)
+    await unarchiveHabit(habit.id, ctx(T0, '2026-09-10'), db)
+    await archiveHabit(habit.id, ctx(T0, '2026-09-20'), db)
+
+    expect((await getHabit(habit.id, db))?.archivedPeriods).toEqual([
+      { from: '2026-09-03', to: '2026-09-10' },
+      { from: '2026-09-21', to: null },
+    ])
+  })
+
+  it('drops a pause that never contained a whole day', async () => {
+    // Archived and reactivated the same day: the range would be empty, and an
+    // empty range is noise every later reader would have to reason about.
+    const habit = await createHabit({ draft: draft(), startDayKey: '2026-09-02', instant: T0 }, db)
+    await archiveHabit(habit.id, ctx(T0, '2026-09-02'), db)
+    await unarchiveHabit(habit.id, ctx(T0 + 10, '2026-09-02'), db)
+
+    const restored = await getHabit(habit.id, db)
+    expect('archivedPeriods' in restored!).toBe(false)
+    expect(restored?.status).toBe('active')
+  })
+
+  it('does not move the start of an already-open pause', async () => {
+    const habit = await createHabit({ draft: draft(), startDayKey: '2026-09-02', instant: T0 }, db)
+    await archiveHabit(habit.id, ctx(T0, '2026-09-02'), db)
+    await archiveHabit(habit.id, ctx(T0, '2026-09-20'), db)
+    expect((await getHabit(habit.id, db))?.archivedPeriods).toEqual([
+      { from: '2026-09-03', to: null },
+    ])
+  })
+})
+
+describe('cadence history', () => {
+  it('records the old cadence and the new one when the schedule changes', async () => {
+    const habit = await createHabit(
+      { draft: draft({ schedule: { kind: 'specificDays', days: [1, 3, 5] } }), startDayKey: '2026-09-02', instant: T0 },
+      db,
+    )
+
+    const updated = await updateHabit(
+      habit.id,
+      draft({ schedule: { kind: 'daily' } }),
+      ctx(T0 + 1000, '2026-09-10'),
+      db,
+    )
+
+    // The old cadence is backfilled to the habit's start, so every past day is
+    // still judged by the rule that was actually in force then.
+    expect(updated.scheduleHistory).toEqual([
+      { from: '2026-09-02', schedule: { kind: 'specificDays', days: [1, 3, 5] } },
+      { from: '2026-09-11', schedule: { kind: 'daily' } },
+    ])
+  })
+
+  it('adds nothing when the cadence is unchanged', async () => {
+    const habit = await createHabit({ draft: draft(), startDayKey: '2026-09-02', instant: T0 }, db)
+    const updated = await updateHabit(habit.id, draft({ name: 'Renamed' }), ctx(T0 + 1000), db)
+    expect('scheduleHistory' in updated).toBe(false)
+  })
+
+  it('treats a reordered day list as the same cadence', async () => {
+    // Re-saving the form after toggling a day off and on again must not count
+    // as a change, or the timeline fills with entries that mean nothing.
+    const habit = await createHabit(
+      { draft: draft({ schedule: { kind: 'specificDays', days: [1, 3, 5] } }), startDayKey: '2026-09-02', instant: T0 },
+      db,
+    )
+    const updated = await updateHabit(
+      habit.id,
+      draft({ schedule: { kind: 'specificDays', days: [5, 1, 3] } }),
+      ctx(T0 + 1000, '2026-09-10'),
+      db,
+    )
+    expect('scheduleHistory' in updated).toBe(false)
+  })
+
+  it('collapses two changes made on the same day into one entry', async () => {
+    const habit = await createHabit({ draft: draft(), startDayKey: '2026-09-02', instant: T0 }, db)
+    await updateHabit(
+      habit.id,
+      draft({ schedule: { kind: 'timesPerWeek', target: 3 } }),
+      ctx(T0 + 1000, '2026-09-10'),
+      db,
+    )
+    const twice = await updateHabit(
+      habit.id,
+      draft({ schedule: { kind: 'timesPerWeek', target: 5 } }),
+      ctx(T0 + 2000, '2026-09-10'),
+      db,
+    )
+
+    expect(twice.scheduleHistory).toEqual([
+      { from: '2026-09-02', schedule: { kind: 'daily' } },
+      { from: '2026-09-11', schedule: { kind: 'timesPerWeek', target: 5 } },
+    ])
+  })
+
+  it('appends to an existing timeline rather than reseeding it', async () => {
+    const habit = await createHabit({ draft: draft(), startDayKey: '2026-09-02', instant: T0 }, db)
+    await updateHabit(
+      habit.id,
+      draft({ schedule: { kind: 'timesPerWeek', target: 3 } }),
+      ctx(T0 + 1000, '2026-09-10'),
+      db,
+    )
+    const third = await updateHabit(
+      habit.id,
+      draft({ schedule: { kind: 'specificDays', days: [2, 4] } }),
+      ctx(T0 + 2000, '2026-09-20'),
+      db,
+    )
+
+    expect(third.scheduleHistory).toEqual([
+      { from: '2026-09-02', schedule: { kind: 'daily' } },
+      { from: '2026-09-11', schedule: { kind: 'timesPerWeek', target: 3 } },
+      { from: '2026-09-21', schedule: { kind: 'specificDays', days: [2, 4] } },
+    ])
   })
 })
 
@@ -219,6 +365,86 @@ describe('the log table invariant', () => {
     }
     await db.logs.add({ ...log, id: 'log1' })
     await expect(db.logs.add({ ...log, id: 'log2' })).rejects.toThrow()
+  })
+})
+
+describe('habit icons', () => {
+  it('stores a chosen icon', async () => {
+    const habit = await createHabit(
+      { draft: draft({ icon: 'hexagon' }), startDayKey: '2026-09-02', instant: T0 },
+      db,
+    )
+    expect(habit.icon).toBe('hexagon')
+    expect((await getHabit(habit.id, db))?.icon).toBe('hexagon')
+  })
+
+  it('omits the key entirely when no icon is chosen', async () => {
+    // Absent must mean "no key", not a stored undefined — the same rule the
+    // other optional fields follow.
+    const habit = await createHabit(
+      { draft: draft(), startDayKey: '2026-09-02', instant: T0 },
+      db,
+    )
+    expect('icon' in habit).toBe(false)
+  })
+
+  it('rejects an unknown icon id', async () => {
+    await expect(
+      createHabit(
+        { draft: draft({ icon: 'not-a-gem' as 'hexagon' }), startDayKey: '2026-09-02', instant: T0 },
+        db,
+      ),
+    ).rejects.toBeInstanceOf(HabitValidationError)
+  })
+
+  it('can change and clear the icon on edit', async () => {
+    const habit = await createHabit(
+      { draft: draft({ icon: 'shield' }), startDayKey: '2026-09-02', instant: T0 },
+      db,
+    )
+    expect((await updateHabit(habit.id, draft({ icon: 'heart' }), ctx(T0 + 1), db)).icon).toBe('heart')
+    expect('icon' in (await updateHabit(habit.id, draft(), ctx(T0 + 2), db))).toBe(false)
+  })
+
+  it('imports a pre-icon backup unchanged', async () => {
+    // Habits created before icons existed carry no icon key. They must import
+    // cleanly and fall back to the default at render time — adding the field
+    // required no Dexie schema change, so there is nothing to migrate.
+    await ensureInitialised(T0, db)
+    const legacy = JSON.stringify({
+      format: 'habit-tracker-backup',
+      version: 1,
+      dbVersion: 1,
+      exportedAt: T0,
+      tables: {
+        habits: [
+          {
+            id: 'pre-icon',
+            name: 'Old habit',
+            category: '',
+            difficulty: 2,
+            schedule: { kind: 'daily' },
+            minimumVersion: 'small',
+            status: 'active',
+            startDayKey: '2026-08-01',
+            sortOrder: 1,
+            createdAt: 0,
+            updatedAt: 0,
+          },
+        ],
+        logs: [],
+        dailyFocus: [],
+        freezeEvents: [],
+        gameState: [],
+        settings: [],
+      },
+    })
+    await importBackup(parseBackup(legacy), db)
+
+    const restored = await getHabit('pre-icon', db)
+    expect(restored).toBeDefined()
+    expect(restored?.icon).toBeUndefined()
+    expect(restored?.name).toBe('Old habit')
   })
 })
 

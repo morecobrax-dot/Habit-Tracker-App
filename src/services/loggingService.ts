@@ -1,7 +1,7 @@
 import type { DayKey, HabitLog, LogOutcome, PartialKind } from '@/domain/types'
 import { isCredited } from '@/domain/logs'
 import { compareDayKeys, isWithinBackdateWindow, toDayKey } from '@/domain/time/dayKey'
-import { isScheduledOn } from '@/domain/schedule'
+import { isScheduledOn, scheduleFor, wasArchivedOn } from '@/domain/schedule'
 import { awardXp, type XpAward } from '@/domain/xp'
 import { DEFAULT_XP_RULES } from '@/domain/rules/xpRules'
 import { db } from '@/data/db'
@@ -65,7 +65,12 @@ export async function logHabit(
 
   const habit = await getHabit(input.habitId, database)
   if (!habit) throw new LoggingError('That habit no longer exists.', 'unknown_habit')
-  if (habit.status !== 'active') {
+
+  // Asked of the day, not of the habit. Archiving takes effect tomorrow, so the
+  // day you archived on is still live — and must stay loggable, or it becomes a
+  // miss you are no longer allowed to prevent. A habit archived before ranges
+  // existed reads as archived on every day, exactly as before.
+  if (wasArchivedOn(habit, input.dayKey)) {
     throw new LoggingError('That habit is archived.', 'archived_habit')
   }
 
@@ -83,7 +88,10 @@ export async function logHabit(
     )
   }
 
-  if (!isScheduledOn(habit.schedule, input.dayKey)) {
+  // Judged by the cadence in force on the day being logged. Using the current
+  // cadence would refuse a backdated log for a day the habit really was due,
+  // just because the schedule has been edited since.
+  if (!isScheduledOn(scheduleFor(habit, input.dayKey), input.dayKey)) {
     throw new LoggingError('That habit is not scheduled on that day.', 'not_scheduled')
   }
 

@@ -2,19 +2,23 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/data/db'
-import { archiveHabit, unarchiveHabit } from '@/data/repos/habitRepo'
+import { archiveHabit, reorderHabits, unarchiveHabit } from '@/data/repos/habitRepo'
 import { describeSchedule } from '@/domain/schedule'
-import { DIFFICULTY_LABELS, type DifficultyTier, type Habit } from '@/domain/types'
+import { DIFFICULTY_LABELS, type Habit } from '@/domain/types'
 import { systemClock } from '@/services/clock'
+import { useApp } from '@/state/AppContext'
 import { Badge, Button, EmptyState } from '@/components/ui'
+import { HabitListSkeleton } from '@/components/Skeleton'
+import { DragHandle, Reorderable, type HandleProps } from '@/components/Reorderable'
+import { Gem, DEFAULT_GEM } from '@/components/icons/gems'
 
-const TIER_COLORS: Record<DifficultyTier, string> = {
-  1: 'var(--color-tier-1)',
-  2: 'var(--color-tier-2)',
-  3: 'var(--color-tier-3)',
-  4: 'var(--color-tier-4)',
-}
-
+/**
+ * The list of habits: reorder them, archive them, open one.
+ *
+ * Order matters beyond this screen — it is the order habits appear under
+ * "Also today" on the home page — which is why reordering is a first-class
+ * gesture here rather than a setting.
+ */
 export function HabitsRoute() {
   const [showArchived, setShowArchived] = useState(false)
 
@@ -23,43 +27,65 @@ export function HabitsRoute() {
     return all.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
   }, [])
 
-  if (!habits) return <p className="py-8 text-sm text-text-faint">Loading…</p>
+  if (!habits) return <HabitListSkeleton />
 
   const active = habits.filter((h) => h.status === 'active')
   const archived = habits.filter((h) => h.status === 'archived')
 
+  const persistOrder = (orderedIds: string[]) => {
+    void reorderHabits(orderedIds, systemClock.now())
+  }
+
   return (
     <div className="flex flex-col gap-5 pb-6">
-      <header className="flex items-baseline justify-between pt-2">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Habits</h1>
-          <p className="mt-1 text-sm text-text-muted">
+      <header className="flex items-baseline justify-between gap-3 pt-2">
+        <div className="min-w-0">
+          <h1 className="text-title font-semibold tracking-tight text-text-primary">Habits</h1>
+          <p className="mt-1 text-small tabular-nums text-text-muted">
             {active.length === 0
               ? 'Nothing set up yet'
               : `${active.length} active${archived.length > 0 ? ` · ${archived.length} archived` : ''}`}
           </p>
         </div>
-        <Link to="/habits/new">
+        <Link to="/habits/new" className="shrink-0">
           <Button variant="primary">New habit</Button>
         </Link>
       </header>
 
       {active.length === 0 ? (
         <EmptyState
-          title="Start with one"
-          body="Pick the thing you've been putting off, and write down the two-minute version of it. That fallback is what you'll reach for on bad days."
+          title={archived.length > 0 ? 'Nothing active right now' : 'Start with one'}
+          body={
+            archived.length > 0
+              ? "Everything you have is archived, which is a perfectly fine place to be. Restore one when you're ready, or add something new."
+              : "Pick the thing you've been putting off, and write down the two-minute version of it. That fallback is what you'll reach for on bad days."
+          }
           action={
             <Link to="/habits/new">
-              <Button variant="primary">Add your first habit</Button>
+              <Button variant="primary">
+                {archived.length > 0 ? 'Add a habit' : 'Add your first habit'}
+              </Button>
             </Link>
           }
         />
       ) : (
-        <ul className="flex flex-col gap-2.5">
-          {active.map((habit) => (
-            <HabitRow key={habit.id} habit={habit} />
-          ))}
-        </ul>
+        <Reorderable
+          items={active}
+          keyOf={(habit) => habit.id}
+          labelOf={(habit) => habit.name}
+          onReorder={persistOrder}
+        >
+          {(habit, handle, state) => (
+            <HabitCard habit={habit} handle={handle} dragging={state.dragging} />
+          )}
+        </Reorderable>
+      )}
+
+      {active.length > 1 && (
+        <p className="px-1 text-micro text-text-muted">
+          Drag the handle to reorder, or focus it and use the arrow keys. This order is the
+          order they appear under today's habits.
+        </p>
       )}
 
       {archived.length > 0 && (
@@ -67,20 +93,34 @@ export function HabitsRoute() {
           <button
             type="button"
             onClick={() => setShowArchived((v) => !v)}
-            className="flex items-center gap-2 self-start text-sm text-text-muted hover:text-text"
+            className="flex min-h-11 items-center gap-2 self-start text-small text-text-secondary transition-colors hover:text-text-primary"
             aria-expanded={showArchived}
           >
-            <span aria-hidden className={showArchived ? 'rotate-90 transition' : 'transition'}>
+            <span
+              aria-hidden
+              className={[
+                'inline-block transition-transform duration-fast',
+                showArchived ? 'rotate-90' : '',
+              ].join(' ')}
+            >
               ›
             </span>
             Archived ({archived.length})
           </button>
           {showArchived && (
-            <ul className="flex flex-col gap-2.5">
-              {archived.map((habit) => (
-                <HabitRow key={habit.id} habit={habit} archived />
-              ))}
-            </ul>
+            <>
+              <p className="px-1 text-micro leading-relaxed text-text-muted">
+                Archiving is a pause, not a loss. These days count as not-scheduled, so they
+                cannot break a streak — restoring one picks up where it left off.
+              </p>
+              <ul className="flex flex-col gap-2.5">
+                {archived.map((habit) => (
+                  <li key={habit.id}>
+                    <HabitCard habit={habit} archived />
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </section>
       )}
@@ -88,42 +128,56 @@ export function HabitsRoute() {
   )
 }
 
-function HabitRow({ habit, archived = false }: { habit: Habit; archived?: boolean }) {
+function HabitCard({
+  habit,
+  handle,
+  dragging = false,
+  archived = false,
+}: {
+  habit: Habit
+  handle?: HandleProps
+  dragging?: boolean
+  archived?: boolean
+}) {
   const navigate = useNavigate()
+  const { today } = useApp()
   const [busy, setBusy] = useState(false)
 
   const toggleArchive = async () => {
     setBusy(true)
     try {
-      const now = systemClock.now()
-      if (archived) await unarchiveHabit(habit.id, now)
-      else await archiveHabit(habit.id, now)
+      const context = { todayKey: today, instant: systemClock.now() }
+      if (archived) await unarchiveHabit(habit.id, context)
+      else await archiveHabit(habit.id, context)
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <li
+    <div
       className={[
-        'rounded-2xl border border-line bg-surface transition-colors',
-        archived ? 'opacity-55' : 'hover:border-line-strong',
+        'rounded-card border bg-surface transition-all duration-fast',
+        archived ? 'border-border opacity-55' : 'border-border hover:border-border-interactive/60',
+        // Lifted rather than tinted while dragging: the row is being *moved*,
+        // not completed, and red would say "earned".
+        dragging ? 'border-border-interactive shadow-card' : '',
       ].join(' ')}
     >
-      <div className="flex items-start gap-3 p-4">
-        <span
-          aria-hidden
-          className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
-          style={{ backgroundColor: TIER_COLORS[habit.difficulty] }}
-        />
+      <div className="flex items-start gap-2 p-3">
+        {handle && <DragHandle handle={handle} dragging={dragging} />}
+
+        <span className={handle ? 'mt-2.5 shrink-0' : 'mt-1 ml-1.5 shrink-0'}>
+          <Gem id={habit.icon ?? DEFAULT_GEM} size={24} />
+        </span>
 
         <button
           type="button"
-          onClick={() => navigate(`/habits/${habit.id}/edit`)}
-          className="min-w-0 flex-1 text-left"
+          onClick={() => navigate(`/habits/${habit.id}`)}
+          className="min-w-0 flex-1 py-1 text-left"
         >
-          <p className="truncate font-medium text-text">{habit.name}</p>
-          <p className="mt-0.5 text-xs text-text-muted">
+          <p className="truncate text-body font-medium text-text-primary">{habit.name}</p>
+          <p className="mt-0.5 text-micro text-text-secondary">
             {describeSchedule(habit.schedule)}
             {habit.category && ` · ${habit.category}`}
             {` · ${DIFFICULTY_LABELS[habit.difficulty]}`}
@@ -133,26 +187,28 @@ function HabitRow({ habit, archived = false }: { habit: Habit; archived?: boolea
             screen. On a bad day the user needs to see the small version without
             having to go looking for it.
           */}
-          <p className="mt-2 text-xs leading-relaxed text-text-faint">
-            <span className="text-text-muted">Bad day:</span> {habit.minimumVersion}
+          <p className="mt-2 text-micro leading-relaxed text-text-muted">
+            <span className="text-text-secondary">Bad day:</span> {habit.minimumVersion}
           </p>
         </button>
 
         <div className="flex shrink-0 flex-col items-end gap-1">
           {habit.estimatedMinutes !== undefined && (
-            <Badge>{habit.estimatedMinutes} min</Badge>
+            <Badge>
+              <span className="tabular-nums">{habit.estimatedMinutes}</span> min
+            </Badge>
           )}
           <Button
             variant="ghost"
             onClick={toggleArchive}
             disabled={busy}
             aria-label={archived ? `Restore ${habit.name}` : `Archive ${habit.name}`}
-            className="min-h-9 px-2 text-xs"
+            className="px-2 text-micro"
           >
             {archived ? 'Restore' : 'Archive'}
           </Button>
         </div>
       </div>
-    </li>
+    </div>
   )
 }

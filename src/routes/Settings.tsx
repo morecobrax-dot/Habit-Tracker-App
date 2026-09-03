@@ -20,11 +20,11 @@ export function SettingsRoute() {
   return (
     <div className="flex flex-col gap-5 pb-6">
       <header className="pt-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <h1 className="text-title font-semibold tracking-tight">Settings</h1>
       </header>
 
       <Card className="flex flex-col gap-5">
-        <h2 className="text-sm font-semibold tracking-wide text-text-muted uppercase">Your day</h2>
+        <h2 className="label-caps text-text-secondary">Your day</h2>
 
         <Field
           label="A new day starts at"
@@ -73,9 +73,9 @@ export function SettingsRoute() {
           </Select>
         </Field>
 
-        <div className="rounded-xl border border-line bg-surface-raised px-3 py-2.5 text-xs leading-relaxed text-text-faint">
-          Right now it is <span className="text-text-muted">{today}</span> for you. This day ends at{' '}
-          <span className="text-text-muted">
+        <div className="rounded-card border border-border bg-surface-raise px-3 py-2.5 text-micro leading-relaxed text-text-muted">
+          Right now it is <span className="text-text-secondary">{today}</span> for you. This day ends at{' '}
+          <span className="text-text-secondary">
             {String(dayContext.dayStartHour).padStart(2, '0')}:00
           </span>{' '}
           tomorrow in {dayContext.timeZone}.
@@ -83,7 +83,7 @@ export function SettingsRoute() {
             <>
               {' '}
               The calendar date is already{' '}
-              <span className="text-text-muted">
+              <span className="text-text-secondary">
                 {toDayKey(systemClock.now(), { ...dayContext, dayStartHour: 0 })}
               </span>
               , but your day hasn't rolled over yet.
@@ -93,7 +93,7 @@ export function SettingsRoute() {
       </Card>
 
       <Card className="flex flex-col gap-4">
-        <h2 className="text-sm font-semibold tracking-wide text-text-muted uppercase">Logging</h2>
+        <h2 className="label-caps text-text-secondary">Logging</h2>
         <Field
           label="Backdating window"
           hint="How far back you can log. Kept short on purpose: reconstructing last week from memory is fiction, and fiction in the log makes every number downstream meaningless."
@@ -114,12 +114,39 @@ export function SettingsRoute() {
 
       <DataCard />
 
-      <p className="px-1 text-xs leading-relaxed text-text-faint">
-        Everything is stored on this device only. Nothing is uploaded, and there is no account.
-        {' '}
-        {WEEKDAY_NAMES[settings.weekStartsOn]}-start weeks.
-      </p>
+      <footer className="flex flex-col gap-1 px-1">
+        <p className="text-micro leading-relaxed text-text-muted">
+          Everything is stored on this device only. Nothing is uploaded, and there is no account.
+          {' '}
+          {WEEKDAY_NAMES[settings.weekStartsOn]}-start weeks.
+        </p>
+        <BuildStamp />
+      </footer>
     </div>
+  )
+}
+
+/**
+ * Which build this device is actually running.
+ *
+ * Small and last, because it is diagnostic rather than a setting — but present,
+ * because "is my phone on the new version?" is otherwise unanswerable from the
+ * phone. The commit is the deployed SHA; the timestamp disambiguates two builds
+ * of the same commit.
+ */
+function BuildStamp() {
+  const built = new Date(__BUILD_TIME__)
+  // Seconds included on purpose. Two builds of the same commit — a re-run of
+  // the deploy workflow — are otherwise indistinguishable, which defeats the
+  // one job this line has.
+  const stamp = Number.isNaN(built.getTime())
+    ? __BUILD_TIME__
+    : `${built.toISOString().slice(0, 10)} ${built.toISOString().slice(11, 19)} UTC`
+
+  return (
+    <p className="text-micro tabular-nums text-text-muted">
+      Build <span className="text-text-secondary">{__BUILD_COMMIT__}</span> · {stamp}
+    </p>
   )
 }
 
@@ -194,8 +221,8 @@ function DataCard() {
   return (
     <Card className="flex flex-col gap-4">
       <div>
-        <h2 className="text-sm font-semibold tracking-wide text-text-muted uppercase">Your data</h2>
-        <p className="mt-2 text-xs leading-relaxed text-text-faint">
+        <h2 className="label-caps text-text-secondary">Your data</h2>
+        <p className="mt-2 text-micro leading-relaxed text-text-muted">
           This app has no backend, so this device is the only copy. Browsers can evict local storage
           under pressure. Export occasionally.
         </p>
@@ -223,7 +250,8 @@ function DataCard() {
       {status && (
         <p
           role="status"
-          className={`text-xs ${status.tone === 'ok' ? 'text-text-muted' : 'text-danger'}`}
+          /* Failure is carried by weight rather than by red text. */
+          className={`text-micro ${status.tone === 'ok' ? 'text-text-secondary' : 'font-semibold text-text-primary'}`}
         >
           {status.message}
         </p>

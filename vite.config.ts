@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process'
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
@@ -15,6 +16,29 @@ import { VitePWA } from 'vite-plugin-pwa'
  */
 const BASE = '/Habit-Tracker-App/'
 
+/**
+ * Which build this is, stamped in at compile time.
+ *
+ * Shown in Settings so a glance at the phone answers "is this actually the new
+ * version?" — the question that is otherwise unanswerable when a service worker
+ * is serving something and you cannot tell what.
+ *
+ * `GITHUB_SHA` first because CI is where deployed builds come from; git second
+ * for a local `npm run build`; `dev` when neither is available (a tarball, a
+ * container without git) rather than failing the build over a version string.
+ */
+function buildCommit(): string {
+  const fromCi = process.env.GITHUB_SHA
+  if (fromCi) return fromCi.slice(0, 7)
+  try {
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim()
+  } catch {
+    return 'dev'
+  }
+}
+
 export default defineConfig(({ mode }) => ({
   /*
    * Keyed on `mode`, not `command`. `vite preview` runs with command 'serve',
@@ -29,7 +53,24 @@ export default defineConfig(({ mode }) => ({
     react(),
     tailwindcss(),
     VitePWA({
+      /*
+       * Unchanged, and already correct: the generated `sw.js` calls
+       * `skipWaiting()` and `clientsClaim()`, so a new worker never sits in
+       * the waiting state.
+       */
       registerType: 'autoUpdate',
+      /*
+       * Registration is ours (`services/swUpdates.ts`).
+       *
+       * The default 'auto' injects `registerSW.js`, which registers on load
+       * and then never checks again — no timer, no foreground check, no way
+       * to hook one in. Importing `virtual:pwa-register` instead would hand
+       * back an `onRegisteredSW` hook but also, in autoUpdate mode, an
+       * unconditional `window.location.reload()` the instant the new worker
+       * activates. `null` leaves both the update checks and the reload timing
+       * under our control. See `services/swUpdates.ts` for the details.
+       */
+      injectRegister: null,
       includeAssets: ['icons/apple-touch-icon.png', 'icons/favicon.svg'],
       manifest: {
         name: 'Habit Tracker',
@@ -62,9 +103,33 @@ export default defineConfig(({ mode }) => ({
         // The fallback must carry the base, or a cold navigation on Pages
         // resolves to the domain root and 404s.
         navigateFallback: `${BASE}index.html`,
+        /*
+         * `index.html` is precached, but never with a TTL of its own — Workbox
+         * stores it against a content revision hash and that hash lives inside
+         * `sw.js`. So the HTML is replaced exactly when the worker is, and the
+         * only thing that could pin the app to a stale asset manifest is a
+         * stale `sw.js`. That is handled at registration with
+         * `updateViaCache: 'none'` (see `services/swUpdates.ts`), which matters
+         * here because GitHub Pages serves every file, `sw.js` included, with
+         * `Cache-Control: max-age=600`.
+         *
+         * Deleting the previous build's precache is what stops an old HTML
+         * revision surviving alongside the new one.
+         */
+        cleanupOutdatedCaches: true,
+        /*
+         * Never let a navigation be answered from the HTTP cache on the way to
+         * the precache — a 10-minute-stale `index.html` served to a cold start
+         * would reference asset hashes the new build no longer has.
+         */
+        navigationPreload: false,
       },
     }),
   ],
+  define: {
+    __BUILD_COMMIT__: JSON.stringify(buildCommit()),
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

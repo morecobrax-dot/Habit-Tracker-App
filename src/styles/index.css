@@ -1,24 +1,28 @@
 @import 'tailwindcss';
+@import './tokens.css';
 
 /**
- * Design tokens.
+ * ---------------------------------------------------------------------------
+ * LEGACY TOKENS — SCHEDULED FOR DELETION
+ * ---------------------------------------------------------------------------
+ * Everything in the @theme block below is the pre-overhaul palette. It is kept
+ * only so the existing screens keep rendering while they are migrated to
+ * `tokens.css` one at a time.
  *
- * Dark-only for now. A light theme is phase 5 polish; committing to one scheme
- * keeps this phase's visual surface small and honest.
- *
- * The palette is deliberately calm. This app is opened on days when the user is
- * avoiding something, and a loud interface reads as pressure.
+ * Nothing new may reference these. They are deleted in the final step of the
+ * design overhaul, and the audit at the end fails if any component still
+ * points at them.
  */
 @theme {
   --color-ink: #0b1020;
-  --color-surface: #141b2f;
+  --color-legacy-surface: #141b2f;
   --color-surface-raised: #1c2440;
   --color-surface-hover: #232c4d;
   --color-line: #2b3559;
   --color-line-strong: #3a4670;
 
   --color-text: #e9edfa;
-  --color-text-muted: #98a3c4;
+  --color-legacy-text-muted: #98a3c4;
   --color-text-faint: #6b769a;
 
   --color-brand: #6d7cff;
@@ -28,7 +32,7 @@
   /* Reserved for XP and level-up in phase 3. */
   --color-xp: #f5a524;
 
-  --color-danger: #f2555a;
+  --color-legacy-danger: #f2555a;
   --color-danger-dim: #3a1f2a;
 
   --color-tier-1: #56ccf2;
@@ -36,22 +40,25 @@
   --color-tier-3: #fbbf24;
   --color-tier-4: #fb7185;
 
-  --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-    sans-serif;
+  /* `--font-sans` is deliberately NOT redeclared here. The new type system in
+   * tokens.css owns it, so Outfit applies app-wide from step 1 — a type scale
+   * that can only be seen on an isolated swatch page is not reviewable. */
 }
 
 @layer base {
   html {
-    background-color: var(--color-ink);
+    background-color: var(--color-bg-base);
     /* Stop iOS from enlarging text when the device rotates. */
     -webkit-text-size-adjust: 100%;
   }
 
   body {
     margin: 0;
-    background-color: var(--color-ink);
-    color: var(--color-text);
+    /* The page ground is `bg-base`, not a card colour. The heatmap depends on
+       this: `heat-0` IS `surface`, so an empty grid on a surface-coloured page
+       would vanish completely. See `components/History.tsx`. */
+    background-color: var(--color-bg-base);
+    color: var(--color-text-primary);
     font-family: var(--font-sans);
     /* Overscroll bounce revealing a white void behind the app looks broken. */
     overscroll-behavior-y: none;
@@ -62,10 +69,12 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* `border-interactive` is the token chosen for exactly this: it clears the
+     3:1 non-text contrast floor (WCAG 1.4.11) against all three surfaces. */
   :focus-visible {
-    outline: 2px solid var(--color-brand-strong);
+    outline: 2px solid var(--color-border-interactive);
     outline-offset: 2px;
-    border-radius: 4px;
+    border-radius: var(--radius-xs);
   }
 
   button {
@@ -102,5 +111,246 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* ==========================================================================
+ * COMPLETION — the one animation that matters
+ *
+ * Logging a habit is the act the whole app exists to make easier, so it is the
+ * one moment worth spending motion on. Three things happen at once and all of
+ * them are done inside 400ms: a red wash sweeps across the row and settles, the
+ * gem pops, and the XP earned floats up off it.
+ *
+ * Transform and opacity only — both composite on the GPU, so a five-habit day
+ * animating in sequence never touches layout. All three sit behind the
+ * reduced-motion guard at the bottom of this file.
+ * ======================================================================= */
+
+@keyframes complete-fill {
+  0% {
+    transform: scaleX(0);
+    opacity: 0.85;
+  }
+  55% {
+    transform: scaleX(1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+
+/* Appears almost immediately and holds, rather than easing in. The number has
+ * to be *read* in the time it exists, so the fade-in cannot eat the budget. */
+@keyframes xp-float {
+  0% {
+    transform: translateY(4px);
+    opacity: 0;
+  }
+  15% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+}
+
+@keyframes gem-pop {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.28);
+  }
+}
+
+/*
+ * The base styles below are also the reduced-motion fallback, which is why they
+ * are written the way they are. The global guard at the bottom of this file
+ * collapses every animation to 0.01ms, after which an element with no
+ * `animation-fill-mode` snaps back to its *base* style — so the base has to be
+ * the correct still frame, not the starting one.
+ *
+ * The wash is therefore invisible at rest (it should simply not happen), and
+ * the XP number is visible at rest (it is information, and someone who asked
+ * for less motion still needs to see what they earned — React unmounts it on a
+ * timer either way).
+ */
+@layer components {
+  .complete-fill {
+    transform-origin: left center;
+    opacity: 0;
+    animation: complete-fill 360ms var(--ease-out-soft) 1;
+    will-change: transform, opacity;
+  }
+
+  .xp-float {
+    opacity: 1;
+    animation: xp-float 400ms var(--ease-out-soft) 1;
+    will-change: transform, opacity;
+  }
+
+  .gem-pop {
+    display: inline-flex;
+    animation: gem-pop 320ms var(--ease-spring) 1;
+    will-change: transform;
+  }
+}
+
+/* ==========================================================================
+ * SKELETONS
+ *
+ * A shimmer travelling across a placeholder block, so a slow first paint reads
+ * as loading rather than as an empty app. The blocks match the real layout's
+ * dimensions, which is the entire point — a spinner that collapses to a
+ * different-sized page is the layout jump it was meant to prevent.
+ * ======================================================================= */
+
+@keyframes skeleton-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@layer components {
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background-color: var(--color-surface);
+    border-radius: var(--radius-sm);
+  }
+
+  .skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      --alpha(var(--color-surface-raise) / 90%),
+      transparent
+    );
+    animation: skeleton-sweep 1.4s var(--ease-out-soft) infinite;
+  }
+}
+
+/* ==========================================================================
+ * FLAME MOTION
+ *
+ * Transform and opacity only — both composite on the GPU, so neither triggers
+ * layout or paint. Everything sits behind a reduced-motion guard: the flicker
+ * is decoration, and someone who has asked for stillness should get a flame
+ * that simply holds its colour.
+ * ======================================================================= */
+
+@keyframes flame-flicker {
+  0%,
+  100% {
+    transform: scaleY(1) scaleX(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scaleY(1.045) scaleX(0.985);
+    opacity: 0.92;
+  }
+}
+
+/* Celebration when a tier is reached. Deliberately brief — it marks the
+ * moment and gets out of the way rather than demanding attention. */
+@keyframes flame-tier-pulse {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.16);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ==========================================================================
+ * XP BAR SHEEN
+ *
+ * A highlight that travels across the filled portion of the XP bar, so the bar
+ * reads as lit rather than painted. Transform only — the gradient is static and
+ * the element slides — so it composites without repainting.
+ *
+ * It runs on the *fill*, never the track: glow and shine mean "earned", and an
+ * empty bar has earned nothing.
+ * ======================================================================= */
+
+@keyframes xp-sheen {
+  0% {
+    transform: translateX(-140%);
+  }
+  /* Most of the cycle is spent off-screen. A sheen that sweeps continuously
+     reads as a loading bar — the pause is what makes it feel like a highlight
+     catching the light instead of progress still being made. */
+  55%,
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+@layer components {
+  .xp-sheen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: 42%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      --alpha(var(--color-text-primary) / 28%),
+      transparent
+    );
+    animation: xp-sheen 3.4s var(--ease-out-soft) infinite;
+    will-change: transform;
+  }
+
+  .flame-flicker {
+    /* Anchored at the base so the flame licks upward rather than growing
+       from its middle. */
+    transform-origin: 50% 88%;
+    animation: flame-flicker 1.6s var(--ease-out-soft) infinite;
+    will-change: transform, opacity;
+  }
+
+  .flame-pulse {
+    transform-origin: 50% 88%;
+    animation: flame-tier-pulse 620ms var(--ease-spring) 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flame-flicker,
+  .flame-pulse,
+  .complete-fill,
+  .gem-pop,
+  .skeleton::after {
+    animation: none;
+  }
+
+  /* The sheen is pure decoration, so it is removed rather than stilled — a
+     frozen highlight parked mid-bar looks like a rendering artefact. */
+  .xp-sheen::after {
+    display: none;
+  }
+
+  .xp-float {
+    animation: none;
   }
 }
