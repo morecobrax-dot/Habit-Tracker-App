@@ -18,7 +18,7 @@ export function HabitsRoute() {
     return all.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
   }, [])
 
-  if (!habits) return <p className="py-8 text-sm text-text-faint">Loading…</p>
+  if (!habits) return <p className="py-8 text-sm text-text-muted">Loading…</p>
 
   const active = habits.filter((h) => h.status === 'active')
   const archived = habits.filter((h) => h.status === 'archived')
@@ -28,7 +28,7 @@ export function HabitsRoute() {
       <header className="flex items-baseline justify-between pt-2">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Habits</h1>
-          <p className="mt-1 text-sm tabular-nums text-legacy-text-muted">
+          <p className="mt-1 text-sm tabular-nums text-text-secondary">
             {active.length === 0
               ? 'Nothing set up yet'
               : `${active.length} active${archived.length > 0 ? ` · ${archived.length} archived` : ''}`}
@@ -62,7 +62,7 @@ export function HabitsRoute() {
           <button
             type="button"
             onClick={() => setShowArchived((v) => !v)}
-            className="flex items-center gap-2 self-start text-sm text-legacy-text-muted hover:text-text"
+            className="flex items-center gap-2 self-start text-sm text-text-secondary hover:text-text-primary"
             aria-expanded={showArchived}
           >
             <span aria-hidden className={showArchived ? 'rotate-90 transition' : 'transition'}>
@@ -102,8 +102,8 @@ function HabitRow({ habit, archived = false }: { habit: Habit; archived?: boolea
   return (
     <li
       className={[
-        'rounded-2xl border border-line bg-legacy-surface transition-colors',
-        archived ? 'opacity-55' : 'hover:border-line-strong',
+        'rounded-card border border-border bg-surface transition-colors',
+        archived ? 'opacity-55' : 'hover:border-border-interactive/60',
       ].join(' ')}
     >
       <div className="flex items-start gap-3 p-4">
@@ -116,8 +116,8 @@ function HabitRow({ habit, archived = false }: { habit: Habit; archived?: boolea
           onClick={() => navigate(`/habits/${habit.id}/edit`)}
           className="min-w-0 flex-1 text-left"
         >
-          <p className="truncate font-medium text-text">{habit.name}</p>
-          <p className="mt-0.5 text-xs text-legacy-text-muted">
+          <p className="truncate font-medium text-text-primary">{habit.name}</p>
+          <p className="mt-0.5 text-xs text-text-secondary">
             {describeSchedule(habit.schedule)}
             {habit.category && ` · ${habit.category}`}
             {` · ${DIFFICULTY_LABELS[habit.difficulty]}`}
@@ -127,8 +127,8 @@ function HabitRow({ habit, archived = false }: { habit: Habit; archived?: boolea
             screen. On a bad day the user needs to see the small version without
             having to go looking for it.
           */}
-          <p className="mt-2 text-xs leading-relaxed text-text-faint">
-            <span className="text-legacy-text-muted">Bad day:</span> {habit.minimumVersion}
+          <p className="mt-2 text-xs leading-relaxed text-text-muted">
+            <span className="text-text-secondary">Bad day:</span> {habit.minimumVersion}
           </p>
         </button>
 

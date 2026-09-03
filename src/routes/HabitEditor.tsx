@@ -30,11 +30,23 @@ const EMPTY_DRAFT: HabitDraft = {
   icon: DEFAULT_HABIT_ICON,
 }
 
+/**
+ * Difficulty accent dots, as a maroon-to-hot ramp rather than a colour per tier.
+ *
+ * The old four-hue set came from the legacy palette and said nothing: four
+ * unrelated colours read as four categories, not as an ordered scale. Running
+ * up the red ramp says "heavier" without a legend — and because these are 6px
+ * dots beside a text label, they reinforce the label rather than being the only
+ * carrier of the meaning.
+ *
+ * It starts at `maroon` rather than at the bottom of the heat ramp: `heat-1` is
+ * two steps off the card colour and a dot that dark simply reads as absent.
+ */
 const TIER_COLORS: Record<DifficultyTier, string> = {
-  1: 'var(--color-tier-1)',
-  2: 'var(--color-tier-2)',
-  3: 'var(--color-tier-3)',
-  4: 'var(--color-tier-4)',
+  1: 'var(--color-maroon)',
+  2: 'var(--color-heat-3)',
+  3: 'var(--color-primary)',
+  4: 'var(--color-primary-hot)',
 }
 
 export function HabitEditorRoute() {
@@ -117,12 +129,12 @@ export function HabitEditorRoute() {
     navigate('/habits', { replace: true })
   }
 
-  if (loading) return <p className="py-8 text-sm text-text-faint">Loading…</p>
+  if (loading) return <p className="py-8 text-sm text-text-muted">Loading…</p>
 
   if (notFound) {
     return (
       <div className="flex flex-col items-start gap-4 py-8">
-        <p className="text-sm text-legacy-text-muted">That habit no longer exists.</p>
+        <p className="text-sm text-text-secondary">That habit no longer exists.</p>
         <Button onClick={() => navigate('/habits', { replace: true })}>Back to habits</Button>
       </div>
     )
@@ -317,15 +329,15 @@ function ScheduleEditor({
                 className={[
                   'h-11 flex-1 rounded-lg border text-sm font-medium transition-colors',
                   schedule.target === n
-                    ? 'border-brand bg-brand text-white'
-                    : 'border-line bg-surface-raised text-legacy-text-muted hover:bg-surface-hover',
+                    ? 'border-primary bg-primary text-white'
+                    : 'border-border bg-surface-raise text-text-secondary hover:bg-surface-raise',
                 ].join(' ')}
               >
                 {n}
               </button>
             ))}
           </div>
-          <p className="text-xs leading-relaxed text-text-faint">
+          <p className="text-xs leading-relaxed text-text-muted">
             No particular day — you choose when. The streak counts consecutive weeks you hit the
             target, so there's no mid-week deadline to miss.
           </p>
@@ -347,8 +359,8 @@ function ScheduleEditor({
                 className={[
                   'h-11 flex-1 rounded-lg border text-xs font-medium transition-colors',
                   selected
-                    ? 'border-brand bg-brand text-white'
-                    : 'border-line bg-surface-raised text-legacy-text-muted hover:bg-surface-hover',
+                    ? 'border-primary bg-primary text-white'
+                    : 'border-border bg-surface-raise text-text-secondary hover:bg-surface-raise',
                 ].join(' ')}
               >
                 {name.slice(0, 2)}

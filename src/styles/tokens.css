@@ -123,7 +123,15 @@
 
   /* ======================================================================
    * RADIUS — one card radius everywhere, no exceptions.
+   *
+   * The `initial` clears Tailwind's built-in radius scale before ours is
+   * declared. Without it `rounded-xl` and `rounded-2xl` survive from the
+   * default theme, and step 6's audit found cards rendering at 12px, 16px AND
+   * 20px across the app because those two were reachable by habit. Clearing
+   * the namespace makes a non-token radius a build-time impossibility rather
+   * than something to keep catching in review.
    * ==================================================================== */
+  --radius-*: initial;
   --radius-xs: 0.375rem; /*  6px  chips, swatches */
   --radius-sm: 0.625rem; /* 10px  inputs, small controls */
   --radius-md: 0.875rem; /* 14px  buttons */

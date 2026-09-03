@@ -193,29 +193,55 @@ Not yet placed on a real screen — that is the streak hero in step 4.
       opacity only, behind a `prefers-reduced-motion` guard.
 - [x] Brief celebratory pulse when a tier is reached.
 
-### [ ] Step 4 — home page rebuild
-**Unblocked** — phase 2 is closed. This is the next step.
+### [x] Step 4 — home page rebuild
+Audited in `reports/step-4.md`. Contrast failures across the four real
+screens: zero, down from 37. One card radius everywhere — `rounded-xl`
+and `rounded-2xl` no longer exist. Legacy token references: 0, from 75.
+
+The brief's two "most important element" instructions were resolved by
+separating them: the flame is the visual *anchor* (largest, passive, no
+buttons), the focus card is the *invitation* (only red-filled
+interactive block). Charts sit below the fold — act first, reflect
+second.
+
+Four defects were found only by screenshotting the rendered page: the
+heatmap overflowed its container, the weekday labels used
+`text-disabled` for real text (the second time I have broken that rule
+in my own code), the difficulty segments wrapped, and the XP bar drew a
+stray dot at zero.
+
+**One judgement call to review:** "No red text, ever" was applied
+literally, so the delete button and all error text lost their red
+labels and now carry the warning by border and fill. Details and the
+revert in the report.
 
 Top to bottom:
-- [ ] Header: current level, XP progress bar with glowing fill and
+- [x] Header: current level, XP progress bar with glowing fill and
       subtle sheen, XP remaining to next level.
-- [ ] Streak hero: largest flame (longest active streak) with day count,
+- [x] Streak hero: largest flame (longest active streak) with day count,
       sized as the visual anchor of the page.
-- [ ] Today's focus: the longest-avoided habit, distinct card with red
+- [x] Today's focus: the longest-avoided habit, distinct card with red
       accent border and bonus XP shown. Must read as the most inviting
       thing on screen.
-- [ ] Today's habits: gold icon, name, small flame with streak count,
+- [x] Today's habits: gold icon, name, small flame with streak count,
       large tap target to complete.
-- [ ] Contribution heatmap, last 12 weeks, maroon-to-red intensity ramp,
+- [x] Contribution heatmap, last 12 weeks, maroon-to-red intensity ramp,
       empty days as bare surface cells.
-      **Constraint:** must sit directly on `bg-base`, not inside a
-      `surface` card — `heat-0` equals `surface`, so on a card an empty
-      grid vanishes entirely. Verified in `reports/step-3.md`.
-- [ ] Weekly bar chart of completions, red-to-maroon ramp, soft glow on
+      Sits on `bg-base`, with the reason recorded in the component so it
+      survives being "tidied" into a card later. Intensity is a fraction
+      of the day completed, not a raw count, so one habit and five are
+      judged on the same terms.
+- [x] Weekly bar chart of completions, red-to-maroon ramp, soft glow on
       the current day.
+      Both charts distinguish *future* from *empty*: a day not yet lived
+      is an outline, never a miss.
 
 ### [ ] Step 5 — standard habit-tracker features
-**Unblocked** — phase 2 is closed. Follows step 4.
+**Next.** Step 4 is done. Carried forward from `reports/step-4.md`: the
+tab bar has only the minimum treatment needed to be on-palette, and the
+type scale still drifts to Tailwind's built-in sizes on the three
+screens step 5 touches — the same fix that cured the radius problem
+(`--text-*: initial`) applies, and is best done during that pass.
 
 - [ ] Completion interaction: card fills, icon glows, XP number floats
       up. Under 400ms. The single most important animation in the app.
@@ -238,9 +264,10 @@ deliberate demo row; the new palette produces none.
 
 Re-runnable as `audit.mjs` against a dev server.
 - [ ] Delete the legacy palette from `index.css`.
-      **BLOCKED on step 4.** Still load-bearing for 75 references across
-      six files; deleting it now leaves those screens with undefined
-      colours. Unblocked once the screens are migrated.
+      **Unblocked.** Step 4 migrated every screen; references are now 0,
+      down from 75, so this is a pure deletion with nothing pointing at
+      it. The `@theme` block is still there because deleting it is this
+      step's job, not step 4's.
 - [x] Flag any component still pointing at legacy tokens.
 - [x] Audit every screen against the tokens file; report anything that
       drifted.

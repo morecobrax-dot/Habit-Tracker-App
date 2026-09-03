@@ -3,21 +3,41 @@ import { Link } from 'react-router-dom'
 import type { DayKey, LogOutcome, PartialKind } from '@/domain/types'
 import { backdatableDays, diffDays } from '@/domain/time/dayKey'
 import { DEFAULT_XP_RULES } from '@/domain/rules/xpRules'
+import { bestStreak } from '@/domain/history'
 import { LoggingError, logHabit, unlogHabit } from '@/services/loggingService'
 import { ensureDailyFocus } from '@/services/focusService'
 import { systemClock } from '@/services/clock'
 import { useApp } from '@/state/AppContext'
 import { useDayView, type DayEntry } from '@/state/useDayView'
+import { useHistoryView, weekdayLabels } from '@/state/useHistoryView'
 import { Button, EmptyState } from '@/components/ui'
+import { Flame } from '@/components/Flame'
+import { Heatmap, WeekBars } from '@/components/History'
 import { Gem, DEFAULT_GEM } from '@/components/icons/gems'
 
 /**
  * The screen the app opens on.
  *
  * It is built to answer one question — "what should I start right now?" — and
- * the layout enforces that hierarchy: level and progress are a thin strip, the
- * focus habit is the hero, and everything else is a quiet list. Statistics that
- * do not change what the user does next are deliberately absent.
+ * the layout enforces that hierarchy.
+ *
+ * ## Anchor and invitation are not the same thing
+ *
+ * The streak hero is the visual *anchor*: the largest thing on the page, at the
+ * top, sized so the eye lands there. The focus card is the most inviting
+ * *action*: the only red-filled interactive block on the screen. Those are
+ * different jobs, which is why both briefs can be satisfied at once — the flame
+ * is big and passive, carrying no buttons and no fill, while the focus card is
+ * the only thing that looks like it wants pressing.
+ *
+ * Getting that backwards would produce a page whose loudest element is a score,
+ * which is the framing this product exists to avoid.
+ *
+ * ## Order
+ *
+ * Act first, reflect second. Everything above the backdate bar is about what to
+ * do now; the heatmap and week bars sit below it, because history is context
+ * and context that outranks the next action is just a scoreboard.
  */
 export function TodayRoute() {
   const { today, settings, lastRollover, dismissRollover } = useApp()
@@ -28,6 +48,7 @@ export function TodayRoute() {
   const days = backdatableDays(today, settings.backdateWindowDays)
   const activeDay = days.includes(selectedDay) ? selectedDay : today
   const view = useDayView(activeDay)
+  const history = useHistoryView()
 
   useEnsureFocus(today, view)
 
@@ -35,26 +56,31 @@ export function TodayRoute() {
     if (xp > 0) setGain({ xp, at: Date.now() })
   }
 
+  const dayLabels = weekdayLabels(today, settings.weekStartsOn)
+  const allEntries = view.focus ? [view.focus, ...view.entries] : view.entries
+  const hero = bestStreak(allEntries)
+
   return (
-    <div className="flex flex-col gap-5 pb-4">
-      <LevelStrip level={view.level} gain={gain} freezeTokens={view.freezeTokens} />
+    <div className="flex flex-col gap-6 pb-4">
+      <LevelHeader level={view.level} gain={gain} freezeTokens={view.freezeTokens} />
+
+      {!view.loading && view.activeHabitCount > 0 && <StreakHero entry={hero} />}
 
       {lastRollover && <RolloverNotice onDismiss={dismissRollover} />}
 
       {/*
         Viewing a past day is a mode, so it gets an unmissable banner. Today —
-        the overwhelmingly common case — gets nothing here at all, because the
-        answer to "what do I start now?" must be the first thing on the screen.
+        the overwhelmingly common case — gets nothing here at all.
       */}
       {activeDay !== today && (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-brand/30 bg-brand-dim/40 px-3.5 py-2.5">
-          <span className="text-xs font-medium text-brand-strong">
+        <div className="flex items-center justify-between gap-3 rounded-card border border-primary/40 bg-surface-raise px-3.5 py-2.5">
+          <span className="text-small font-medium text-text-primary">
             Logging {relativeDayLabel(activeDay, today).toLowerCase()}
           </span>
           <button
             type="button"
             onClick={() => setSelectedDay(today)}
-            className="-my-2 min-h-11 px-1 text-xs font-medium text-legacy-text-muted hover:text-text"
+            className="-my-2 min-h-11 px-1 text-small font-medium text-text-muted transition-colors hover:text-text-primary"
           >
             Back to today
           </button>
@@ -64,14 +90,16 @@ export function TodayRoute() {
       {error && (
         <p
           role="alert"
-          className="rounded-xl border border-legacy-danger/40 bg-danger-dim px-3 py-2.5 text-xs leading-relaxed text-legacy-danger"
+          /* Red border and tinted fill carry the alarm; the message stays at
+             full contrast. "No red text, ever" applies to errors too. */
+          className="rounded-card border border-danger bg-danger/15 px-3 py-2.5 text-small leading-relaxed text-text-primary"
         >
           {error}
         </p>
       )}
 
       {view.loading ? (
-        <p className="py-10 text-center text-sm text-text-faint">Loading…</p>
+        <p className="py-10 text-center text-body text-text-muted">Loading…</p>
       ) : view.focus === null && view.entries.length === 0 ? (
         <DayEmptyState
           activeHabitCount={view.activeHabitCount}
@@ -91,12 +119,8 @@ export function TodayRoute() {
 
           {view.entries.length > 0 && (
             <section className="flex flex-col gap-2">
-              {view.focus && (
-                <h2 className="px-1 text-xs font-medium tracking-wide text-text-faint uppercase">
-                  Also today
-                </h2>
-              )}
-              <ul className="overflow-hidden rounded-2xl border border-line bg-legacy-surface">
+              {view.focus && <h2 className="label-caps px-1 text-text-secondary">Also today</h2>}
+              <ul className="overflow-hidden rounded-card border border-border bg-surface">
                 {view.entries.map((entry, index) => (
                   <HabitRow
                     key={entry.habit.id}
@@ -113,7 +137,7 @@ export function TodayRoute() {
         </>
       )}
 
-      {/* Backdating lives at the bottom: available, never in the way. */}
+      {/* Backdating lives below the day's work: available, never in the way. */}
       {days.length > 1 && !view.loading && (
         <BackdateBar
           days={days}
@@ -124,6 +148,17 @@ export function TodayRoute() {
             setError(null)
           }}
         />
+      )}
+
+      {/*
+        History. Deliberately last, and deliberately not inside cards — both
+        charts need `bg-base` behind them to read at zero intensity.
+      */}
+      {!history.loading && view.activeHabitCount > 0 && (
+        <div className="flex flex-col gap-6 border-t border-border pt-6">
+          <WeekBars days={history.thisWeek} dayLabels={dayLabels} today={today} />
+          <Heatmap weeks={history.weeks} dayLabels={dayLabels} />
+        </div>
       )}
     </div>
   )
@@ -156,17 +191,19 @@ function useEnsureFocus(today: DayKey, view: ReturnType<typeof useDayView>) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Level                                                               */
+/* Header                                                              */
 /* ------------------------------------------------------------------ */
 
 /**
  * A thin progress strip rather than a card.
  *
  * Level is context, not the point of the screen. Giving it a card would say
- * "your score is the headline", which is exactly the framing this product is
- * trying to avoid.
+ * "your score is the headline", which is the framing this product avoids.
+ *
+ * The fill carries a glow and a travelling sheen; the empty track carries
+ * neither. Glow means earned, and the unfilled part of the bar has not been.
  */
-function LevelStrip({
+function LevelHeader({
   level,
   gain,
   freezeTokens,
@@ -188,15 +225,21 @@ function LevelStrip({
     }
   }, [gain])
 
+  const remaining = Math.max(0, level.xpForNextLevel - level.xpIntoLevel)
+  // A floor so the first few XP are visible, but only once something has been
+  // earned. At exactly zero the fill is omitted: a 2%-wide rounded bar renders
+  // as a stray dot, which reads as a rendering fault rather than as an empty
+  // bar — and a glowing dot would be claiming credit for nothing.
+  const percent = level.progress > 0 ? Math.max(4, Math.min(100, level.progress * 100)) : 0
+
   return (
-    <div className="flex flex-col gap-2 pt-2">
+    <header className="flex flex-col gap-2 pt-2">
       <div className="flex items-baseline justify-between gap-3">
         <div className="flex items-baseline gap-2">
-          <span className="stat-numerals text-sm text-text">
-            Level {level.level}
-          </span>
+          <span className="text-micro text-text-muted">Level</span>
+          <span className="stat-numerals text-lead text-text-primary">{level.level}</span>
           {flash !== null && (
-            <span className="stat-numerals text-sm text-xp" role="status">
+            <span className="stat-numerals text-body text-gold" role="status">
               +{flash} XP
             </span>
           )}
@@ -204,25 +247,74 @@ function LevelStrip({
         {/* tabular-nums, not stat-numerals: this string mixes numerals with
             prose, and stat-numerals' negative tracking closes up the spaces
             around the separator ("18 / 40 · 2 freezes" reads as "40·2"). */}
-        <span className="text-xs tabular-nums text-text-faint">
-          {level.xpIntoLevel} / {level.xpForNextLevel}
+        <span className="text-micro tabular-nums text-text-muted">
+          {remaining} XP to level {level.level + 1}
           {freezeTokens > 0 && ` · ${freezeTokens} freeze${freezeTokens === 1 ? '' : 's'}`}
         </span>
       </div>
+
       <div
-        className="h-1.5 overflow-hidden rounded-full bg-surface-raised"
+        className="h-2 overflow-hidden rounded-full bg-surface-raise"
         role="progressbar"
         aria-valuenow={Math.round(level.progress * 100)}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-label={`Level ${level.level} progress`}
       >
-        <div
-          className="h-full rounded-full bg-brand transition-[width] duration-500 ease-out"
-          style={{ width: `${Math.max(2, level.progress * 100)}%` }}
-        />
+        {percent > 0 && (
+          <div
+            className="xp-sheen relative h-full overflow-hidden rounded-full bg-primary shadow-glow-subtle transition-[width] duration-slow ease-out-soft"
+            style={{ width: `${percent}%` }}
+          />
+        )}
       </div>
-    </div>
+    </header>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Streak hero                                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The page's visual anchor: the longest streak currently running.
+ *
+ * Big and passive. It states a fact and offers no action, so it can be the
+ * largest thing on the screen without competing with the focus card for the
+ * tap. The flame's hue is the reward — see `components/Flame.tsx`.
+ *
+ * With nothing lit it shows a dormant flame rather than disappearing, so the
+ * space it will occupy is visible from day one. The copy in that state is
+ * deliberately forward-looking: "today starts it", never "you have no streak".
+ */
+function StreakHero({ entry }: { entry: DayEntry | null }) {
+  const streak = entry?.streak.current ?? 0
+  const unit = entry?.streak.unit === 'week' ? 'week' : 'day'
+
+  return (
+    <section className="flex flex-col items-center gap-1 py-1">
+      <Flame streak={streak} size={92} />
+
+      {streak > 0 ? (
+        <>
+          <p className="flex items-baseline gap-2">
+            <span className="stat-numerals text-hero text-text-primary">{streak}</span>
+            <span className="text-body text-text-secondary">
+              {unit}
+              {streak === 1 ? '' : 's'}
+            </span>
+          </p>
+          <p className="max-w-[16rem] truncate text-small text-text-muted">
+            {entry?.habit.name}
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="stat-numerals text-stat text-text-secondary">0</p>
+          <p className="text-small text-text-muted">Today starts it</p>
+        </>
+      )}
+    </section>
   )
 }
 
@@ -231,7 +323,7 @@ function LevelStrip({
 /* ------------------------------------------------------------------ */
 
 /**
- * The signature experience.
+ * The signature experience, and the only red-filled block on the page.
  *
  * Two rules shape this card. The largest, most obvious action is the *smallest*
  * possible version of the task — the longer something has been avoided, the
@@ -270,113 +362,120 @@ function FocusCard({
   const record = (outcome: LogOutcome, partialKind?: PartialKind) =>
     run(() => logHabit({ habitId: habit.id, dayKey: day, outcome, partialKind }, systemClock))
 
-  if (log && (log.outcome === 'complete' || log.outcome === 'partial')) {
-    return (
-      <section className="rounded-2xl border border-brand/40 bg-brand-dim/60 p-5">
-        <p className="text-xs font-medium tracking-wide text-brand-strong uppercase">
-          Today's focus
-        </p>
-        {/* Same heading level as the pending state, so the card's identity in
-            the accessibility tree does not change when it is completed. */}
-        <h2 className="mt-2 text-lg font-semibold tracking-tight text-text">{habit.name}</h2>
-        <p className="mt-2 text-sm leading-relaxed text-legacy-text-muted">
-          {log.outcome === 'complete'
-            ? 'Done — and this was the one you were most likely to put off.'
-            : 'Started. That was the hard part; the rest is optional.'}
-        </p>
-        <div className="mt-3 flex items-center gap-2">
-          {log.outcome === 'partial' && (
+  const done = log?.outcome === 'complete' || log?.outcome === 'partial'
+
+  return (
+    <section
+      className={[
+        'rounded-card border p-5 transition-shadow duration-base',
+        // The accent border is what marks this card out, and it strengthens
+        // once earned. Glow only on the completed state: it means "earned".
+        done
+          ? 'border-primary-hot/50 bg-surface-raise shadow-glow-medium'
+          : 'border-primary/50 bg-surface-raise',
+      ].join(' ')}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <p className="label-caps text-text-secondary">Today's focus</p>
+        {!done && (
+          <span className="shrink-0 rounded-xs border border-gold/30 px-2 py-0.5 text-micro tabular-nums text-gold">
+            +{DEFAULT_XP_RULES.focusBonus} bonus
+          </span>
+        )}
+      </div>
+
+      {/* Same heading level in both states, so the card's identity in the
+          accessibility tree does not change when it is completed. */}
+      <h2 className="mt-2 text-title leading-tight font-semibold text-text-primary">
+        {habit.name}
+      </h2>
+
+      {done ? (
+        <>
+          <p className="mt-2 text-body leading-relaxed text-text-secondary">
+            {log?.outcome === 'complete'
+              ? 'Done — and this was the one you were most likely to put off.'
+              : 'Started. That was the hard part; the rest is optional.'}
+          </p>
+          <div className="mt-3 flex items-center gap-2">
+            {log?.outcome === 'partial' && (
+              <Button
+                variant="secondary"
+                onClick={() => record('complete')}
+                disabled={busy}
+                className="text-small"
+              >
+                I did all of it
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              onClick={() => run(() => unlogHabit(habit.id, day, systemClock))}
+              disabled={busy}
+              className="px-2 text-small"
+            >
+              Undo
+            </Button>
+          </div>
+        </>
+      ) : (
+        <>
+          {/*
+            The primary action is the minimum version, labelled with its own
+            text. Making the smallest possible step the biggest button on the
+            screen is the entire anti-procrastination mechanism in one control.
+          */}
+          <button
+            type="button"
+            onClick={() => record('partial', 'minimum')}
+            disabled={busy}
+            className="mt-4 flex w-full flex-col items-start gap-1 rounded-md bg-primary px-4 py-3.5 text-left transition-all duration-fast ease-out-soft hover:bg-primary-hot hover:shadow-glow-medium active:bg-primary-hot disabled:opacity-50"
+          >
+            <span className="text-micro text-text-primary/75">Start with just this</span>
+            <span className="text-body leading-snug font-medium text-text-primary">
+              {habit.minimumVersion}
+            </span>
+          </button>
+
+          <div className="mt-2 flex items-center gap-2">
             <Button
               variant="secondary"
               onClick={() => record('complete')}
               disabled={busy}
-              className="min-h-10 text-xs"
+              className="flex-1 text-small"
             >
               I did all of it
             </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setExpanded((v) => !v)}
+              aria-expanded={expanded}
+              className="px-3 text-small"
+            >
+              More
+            </Button>
+          </div>
+
+          {expanded && (
+            <div className="mt-2 flex gap-2">
+              <Button
+                onClick={() => record('partial', 'other')}
+                disabled={busy}
+                className="flex-1 text-small"
+              >
+                Partial
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => record('skip')}
+                disabled={busy}
+                className="flex-1 text-small"
+              >
+                Not today
+              </Button>
+            </div>
           )}
-          <Button
-            variant="ghost"
-            onClick={() => run(() => unlogHabit(habit.id, day, systemClock))}
-            disabled={busy}
-            className="min-h-10 px-2 text-xs"
-          >
-            Undo
-          </Button>
-        </div>
-      </section>
-    )
-  }
-
-  return (
-    <section className="rounded-2xl border border-brand/40 bg-brand-dim/60 p-5">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-xs font-medium tracking-wide text-brand-strong uppercase">
-          Today's focus
-        </p>
-        <span className="shrink-0 rounded-md bg-xp/15 px-2 py-0.5 text-xs font-medium text-xp">
-          +{DEFAULT_XP_RULES.focusBonus} bonus
-        </span>
-      </div>
-
-      <h2 className="mt-2 text-xl leading-tight font-semibold tracking-tight text-text">
-        {habit.name}
-      </h2>
-
-      {/*
-        The primary action is the minimum version, labelled with its own text.
-        Making the smallest possible step the biggest button on the screen is
-        the entire anti-procrastination mechanism in one control.
-      */}
-      <button
-        type="button"
-        onClick={() => record('partial', 'minimum')}
-        disabled={busy}
-        className="mt-4 flex w-full flex-col items-start gap-1 rounded-xl bg-brand px-4 py-3.5 text-left transition-colors hover:bg-brand-strong active:bg-brand-strong disabled:opacity-50"
-      >
-        <span className="text-xs text-white/70">Start with just this</span>
-        <span className="text-[0.95rem] leading-snug font-medium text-white">
-          {habit.minimumVersion}
-        </span>
-      </button>
-
-      <div className="mt-2 flex items-center gap-2">
-        <Button
-          variant="secondary"
-          onClick={() => record('complete')}
-          disabled={busy}
-          className="flex-1 text-xs"
-        >
-          I did all of it
-        </Button>
-        <Button
-          variant="ghost"
-          onClick={() => setExpanded((v) => !v)}
-          aria-expanded={expanded}
-          className="min-h-11 px-3 text-xs"
-        >
-          More
-        </Button>
-      </div>
-
-      {expanded && (
-        <div className="mt-2 flex gap-2">
-          <Button
-            onClick={() => record('partial', 'other')}
-            disabled={busy}
-            className="flex-1 text-xs"
-          >
-            Partial
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => record('skip')}
-            disabled={busy}
-            className="flex-1 text-xs"
-          >
-            Not today
-          </Button>
-        </div>
+        </>
       )}
     </section>
   )
@@ -430,29 +529,36 @@ function HabitRow({
   const credited = log?.outcome === 'complete' || log?.outcome === 'partial'
 
   return (
-    <li className={isLast ? '' : 'border-b border-line'}>
-      <div className="flex items-center gap-3 px-4 py-3">
+    <li className={isLast ? '' : 'border-b border-border'}>
+      <div className="flex items-center gap-3 px-3 py-2">
+        {/* 44px: the completion tap is the most-used control in the app and
+            the one whose mis-tap is most annoying, so it gets the full
+            comfortable target rather than the 36px the visual circle needs. */}
         <button
           type="button"
           onClick={() => (credited ? setExpanded((v) => !v) : void record('complete'))}
           disabled={busy}
           aria-label={credited ? `${habit.name} options` : `Mark ${habit.name} done`}
-          className={[
-            'flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors',
-            credited
-              ? 'border-tier-2/50 bg-tier-2/15 text-tier-2'
-              : 'border-line-strong text-transparent hover:border-brand hover:text-brand/40',
-          ].join(' ')}
+          className="flex h-11 w-11 shrink-0 items-center justify-center"
         >
-          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
-            <path
-              d="M5 10.5l3.5 3.5L15 7"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <span
+            className={[
+              'flex h-9 w-9 items-center justify-center rounded-full border transition-all duration-fast',
+              credited
+                ? 'border-primary-hot/60 bg-primary/30 text-text-primary shadow-glow-subtle'
+                : 'border-border-interactive text-transparent hover:border-primary-hot hover:text-primary-hot/40',
+            ].join(' ')}
+          >
+            <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
+              <path
+                d="M5 10.5l3.5 3.5L15 7"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
         </button>
 
         {/* The gem glows only on the day the habit is credited — glow means
@@ -465,38 +571,49 @@ function HabitRow({
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
-          className="min-w-0 flex-1 text-left"
+          className="min-w-0 flex-1 py-1 text-left"
         >
           <p
             className={[
-              'truncate text-sm font-medium',
-              credited ? 'text-legacy-text-muted line-through decoration-text-faint' : 'text-text',
+              'truncate text-body font-medium',
+              credited ? 'text-text-muted line-through' : 'text-text-primary',
             ].join(' ')}
           >
             {habit.name}
           </p>
-          <p className="mt-0.5 truncate text-xs tabular-nums text-text-faint">
+          <p className="mt-0.5 truncate text-micro tabular-nums text-text-muted">
             <StreakLabel streak={streak} />
             {frozenToday && ' · freeze used'}
-            {/* A skip now holds the streak. Saying only "not today" would leave
-                the user guessing whether it cost them something. */}
+            {/* A skip holds the streak. Saying only "not today" would leave the
+                user guessing whether it cost them something. */}
             {log?.outcome === 'skip' && ' · not today, streak held'}
             {log?.partialKind === 'minimum' && ' · minimum'}
           </p>
         </button>
+
+        {/* A small flame per row, so the streak is legible without reading.
+            Silent to screen readers: the count is already in the text above. */}
+        {streak.current > 0 && (
+          <span className="flex shrink-0 items-center gap-1 pr-1">
+            <Flame streak={streak.current} size={18} />
+            <span className="stat-numerals text-small text-text-secondary">
+              {streak.current}
+            </span>
+          </span>
+        )}
       </div>
 
       {expanded && (
-        <div className="flex flex-col gap-2 px-4 pb-3">
+        <div className="flex flex-col gap-2 px-3 pb-3">
           {!credited && (
             <button
               type="button"
               onClick={() => record('partial', 'minimum')}
               disabled={busy}
-              className="flex w-full flex-col items-start gap-0.5 rounded-xl border border-line bg-surface-raised px-3 py-2.5 text-left transition-colors hover:bg-surface-hover disabled:opacity-50"
+              className="flex w-full flex-col items-start gap-0.5 rounded-md border border-border-interactive/50 bg-surface-raise px-3 py-2.5 text-left transition-colors duration-fast hover:border-border-interactive disabled:opacity-50"
             >
-              <span className="text-xs text-text-faint">Start with just this</span>
-              <span className="text-sm text-text">{habit.minimumVersion}</span>
+              <span className="text-micro text-text-muted">Start with just this</span>
+              <span className="text-body text-text-primary">{habit.minimumVersion}</span>
             </button>
           )}
           <div className="flex gap-2">
@@ -504,7 +621,7 @@ function HabitRow({
               <Button
                 onClick={() => record('partial', 'other')}
                 disabled={busy}
-                className="min-h-10 flex-1 text-xs"
+                className="flex-1 text-small"
               >
                 Partial
               </Button>
@@ -514,7 +631,7 @@ function HabitRow({
                 variant="ghost"
                 onClick={() => run(() => unlogHabit(habit.id, day, systemClock))}
                 disabled={busy}
-                className="min-h-10 flex-1 text-xs"
+                className="flex-1 text-small"
               >
                 Undo
               </Button>
@@ -523,7 +640,7 @@ function HabitRow({
                 variant="ghost"
                 onClick={() => record('skip')}
                 disabled={busy}
-                className="min-h-10 flex-1 text-xs"
+                className="flex-1 text-small"
               >
                 Not today
               </Button>
@@ -565,7 +682,7 @@ function BackdateBar({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mx-auto min-h-11 px-3 text-xs text-text-faint transition-colors hover:text-legacy-text-muted"
+        className="mx-auto min-h-11 px-3 text-small text-text-muted transition-colors hover:text-text-primary"
       >
         Forgot to log an earlier day?
       </button>
@@ -573,18 +690,25 @@ function BackdateBar({
   }
 
   return (
-    <div className="flex gap-1 rounded-xl border border-line bg-surface-raised p-1">
+    <div
+      role="radiogroup"
+      aria-label="Day to log"
+      className="flex gap-1 rounded-sm border border-border bg-surface p-1"
+    >
       {[today, ...past].map((day) => (
         <button
           key={day}
           type="button"
-          aria-pressed={day === active}
+          role="radio"
+          aria-checked={day === active}
           onClick={() => onSelect(day)}
           className={[
             // min-h-11 (44px) is the iOS comfortable-tap minimum. These sit in
             // a tight row where mis-taps silently log the wrong day.
-            'min-h-11 flex-1 rounded-lg px-2 text-xs font-medium transition-colors',
-            day === active ? 'bg-brand text-white' : 'text-legacy-text-muted hover:bg-surface-hover',
+            'min-h-11 flex-1 rounded-xs px-2 text-small transition-colors duration-fast',
+            day === active
+              ? 'bg-primary font-semibold text-text-primary'
+              : 'font-medium text-text-muted hover:bg-surface-raise hover:text-text-primary',
           ].join(' ')}
         >
           {relativeDayLabel(day, today)}
@@ -640,11 +764,11 @@ function RolloverNotice({ onDismiss }: { onDismiss: () => void }) {
   const { freezesSpent, streaksBroken } = lastRollover
 
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-line bg-legacy-surface px-3.5 py-3">
-      <div className="flex-1 text-xs leading-relaxed text-legacy-text-muted">
+    <div className="flex items-start gap-3 rounded-card border border-border bg-surface px-3.5 py-3">
+      <div className="flex-1 text-small leading-relaxed text-text-muted">
         {freezesSpent.length > 0 && (
           <p>
-            <span className="text-text">
+            <span className="text-text-primary">
               {freezesSpent.length} streak{freezesSpent.length === 1 ? '' : 's'} kept
             </span>{' '}
             with a freeze token while you were away.
@@ -661,7 +785,7 @@ function RolloverNotice({ onDismiss }: { onDismiss: () => void }) {
         type="button"
         onClick={onDismiss}
         aria-label="Dismiss"
-        className="-m-1 p-1 text-text-faint hover:text-text"
+        className="-m-1 p-1 text-text-muted transition-colors hover:text-text-primary"
       >
         ✕
       </button>

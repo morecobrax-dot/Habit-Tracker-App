@@ -26,7 +26,7 @@ function Shell() {
 
   if (!ready) {
     return (
-      <div className="flex min-h-dvh items-center justify-center text-sm text-text-faint">
+      <div className="flex min-h-dvh items-center justify-center text-sm text-text-muted">
         Loading…
       </div>
     )
@@ -58,7 +58,7 @@ function Shell() {
 
 function TabBar() {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-ink/95 backdrop-blur">
+    <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-bg-base/95 backdrop-blur">
       <div className="mx-auto flex w-full max-w-lg items-stretch pb-safe">
         {/*
           Dashboard and History arrive in phase 4; "Today" is the plain logging
@@ -72,18 +72,38 @@ function TabBar() {
   )
 }
 
+/**
+ * Active state is carried by weight, colour *value*, and a fill indicator —
+ * never by red text, which the palette rules forbid outright. The indicator is
+ * a `primary` bar, and red as a fill is exactly what red is for here.
+ *
+ * Step 5 owns the fuller navigation treatment; this is the minimum needed to
+ * keep the tab bar on-palette now that the page ground has moved to `bg-base`.
+ */
 function TabLink({ to, label }: { to: string; label: string }) {
   return (
     <NavLink
       to={to}
       className={({ isActive }) =>
         [
-          'flex flex-1 items-center justify-center py-3 text-sm font-medium transition-colors',
-          isActive ? 'text-brand-strong' : 'text-text-faint hover:text-legacy-text-muted',
+          'relative flex flex-1 items-center justify-center py-3 text-body transition-colors duration-fast',
+          isActive
+            ? 'font-semibold text-text-primary'
+            : 'font-medium text-text-muted hover:text-text-secondary',
         ].join(' ')
       }
     >
-      {label}
+      {({ isActive }) => (
+        <>
+          {isActive && (
+            <span
+              aria-hidden
+              className="absolute inset-x-0 top-0 mx-auto h-0.5 w-8 rounded-full bg-primary"
+            />
+          )}
+          {label}
+        </>
+      )}
     </NavLink>
   )
 }

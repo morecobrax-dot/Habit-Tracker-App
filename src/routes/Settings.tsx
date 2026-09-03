@@ -24,7 +24,7 @@ export function SettingsRoute() {
       </header>
 
       <Card className="flex flex-col gap-5">
-        <h2 className="text-sm font-semibold tracking-wide text-legacy-text-muted uppercase">Your day</h2>
+        <h2 className="text-sm font-semibold tracking-wide text-text-secondary uppercase">Your day</h2>
 
         <Field
           label="A new day starts at"
@@ -73,9 +73,9 @@ export function SettingsRoute() {
           </Select>
         </Field>
 
-        <div className="rounded-xl border border-line bg-surface-raised px-3 py-2.5 text-xs leading-relaxed text-text-faint">
-          Right now it is <span className="text-legacy-text-muted">{today}</span> for you. This day ends at{' '}
-          <span className="text-legacy-text-muted">
+        <div className="rounded-card border border-border bg-surface-raise px-3 py-2.5 text-xs leading-relaxed text-text-muted">
+          Right now it is <span className="text-text-secondary">{today}</span> for you. This day ends at{' '}
+          <span className="text-text-secondary">
             {String(dayContext.dayStartHour).padStart(2, '0')}:00
           </span>{' '}
           tomorrow in {dayContext.timeZone}.
@@ -83,7 +83,7 @@ export function SettingsRoute() {
             <>
               {' '}
               The calendar date is already{' '}
-              <span className="text-legacy-text-muted">
+              <span className="text-text-secondary">
                 {toDayKey(systemClock.now(), { ...dayContext, dayStartHour: 0 })}
               </span>
               , but your day hasn't rolled over yet.
@@ -93,7 +93,7 @@ export function SettingsRoute() {
       </Card>
 
       <Card className="flex flex-col gap-4">
-        <h2 className="text-sm font-semibold tracking-wide text-legacy-text-muted uppercase">Logging</h2>
+        <h2 className="text-sm font-semibold tracking-wide text-text-secondary uppercase">Logging</h2>
         <Field
           label="Backdating window"
           hint="How far back you can log. Kept short on purpose: reconstructing last week from memory is fiction, and fiction in the log makes every number downstream meaningless."
@@ -114,7 +114,7 @@ export function SettingsRoute() {
 
       <DataCard />
 
-      <p className="px-1 text-xs leading-relaxed text-text-faint">
+      <p className="px-1 text-xs leading-relaxed text-text-muted">
         Everything is stored on this device only. Nothing is uploaded, and there is no account.
         {' '}
         {WEEKDAY_NAMES[settings.weekStartsOn]}-start weeks.
@@ -194,8 +194,8 @@ function DataCard() {
   return (
     <Card className="flex flex-col gap-4">
       <div>
-        <h2 className="text-sm font-semibold tracking-wide text-legacy-text-muted uppercase">Your data</h2>
-        <p className="mt-2 text-xs leading-relaxed text-text-faint">
+        <h2 className="text-sm font-semibold tracking-wide text-text-secondary uppercase">Your data</h2>
+        <p className="mt-2 text-xs leading-relaxed text-text-muted">
           This app has no backend, so this device is the only copy. Browsers can evict local storage
           under pressure. Export occasionally.
         </p>
@@ -223,7 +223,8 @@ function DataCard() {
       {status && (
         <p
           role="status"
-          className={`text-xs ${status.tone === 'ok' ? 'text-legacy-text-muted' : 'text-legacy-danger'}`}
+          /* Failure is carried by weight rather than by red text. */
+          className={`text-xs ${status.tone === 'ok' ? 'text-text-secondary' : 'font-semibold text-text-primary'}`}
         >
           {status.message}
         </p>

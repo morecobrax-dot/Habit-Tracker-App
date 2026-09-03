@@ -47,15 +47,18 @@
 
 @layer base {
   html {
-    background-color: var(--color-ink);
+    background-color: var(--color-bg-base);
     /* Stop iOS from enlarging text when the device rotates. */
     -webkit-text-size-adjust: 100%;
   }
 
   body {
     margin: 0;
-    background-color: var(--color-ink);
-    color: var(--color-text);
+    /* The page ground is `bg-base`, not a card colour. The heatmap depends on
+       this: `heat-0` IS `surface`, so an empty grid on a surface-coloured page
+       would vanish completely. See `components/History.tsx`. */
+    background-color: var(--color-bg-base);
+    color: var(--color-text-primary);
     font-family: var(--font-sans);
     /* Overscroll bounce revealing a white void behind the app looks broken. */
     overscroll-behavior-y: none;
@@ -66,10 +69,12 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* `border-interactive` is the token chosen for exactly this: it clears the
+     3:1 non-text contrast floor (WCAG 1.4.11) against all three surfaces. */
   :focus-visible {
-    outline: 2px solid var(--color-brand-strong);
+    outline: 2px solid var(--color-border-interactive);
     outline-offset: 2px;
-    border-radius: 4px;
+    border-radius: var(--radius-xs);
   }
 
   button {
@@ -145,7 +150,46 @@
   }
 }
 
+/* ==========================================================================
+ * XP BAR SHEEN
+ *
+ * A highlight that travels across the filled portion of the XP bar, so the bar
+ * reads as lit rather than painted. Transform only — the gradient is static and
+ * the element slides — so it composites without repainting.
+ *
+ * It runs on the *fill*, never the track: glow and shine mean "earned", and an
+ * empty bar has earned nothing.
+ * ======================================================================= */
+
+@keyframes xp-sheen {
+  0% {
+    transform: translateX(-140%);
+  }
+  /* Most of the cycle is spent off-screen. A sheen that sweeps continuously
+     reads as a loading bar — the pause is what makes it feel like a highlight
+     catching the light instead of progress still being made. */
+  55%,
+  100% {
+    transform: translateX(320%);
+  }
+}
+
 @layer components {
+  .xp-sheen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: 42%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      --alpha(var(--color-text-primary) / 28%),
+      transparent
+    );
+    animation: xp-sheen 3.4s var(--ease-out-soft) infinite;
+    will-change: transform;
+  }
+
   .flame-flicker {
     /* Anchored at the base so the flame licks upward rather than growing
        from its middle. */
@@ -164,5 +208,11 @@
   .flame-flicker,
   .flame-pulse {
     animation: none;
+  }
+
+  /* The sheen is pure decoration, so it is removed rather than stilled — a
+     frozen highlight parked mid-bar looks like a rendering artefact. */
+  .xp-sheen::after {
+    display: none;
   }
 }
