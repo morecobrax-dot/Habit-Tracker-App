@@ -1,12 +1,12 @@
 import type { DayKey, HabitLog, LogOutcome, PartialKind } from '@/domain/types'
-import { isCredited } from '@/domain/logs'
+import { groupLogsByHabit, isCredited } from '@/domain/logs'
 import { compareDayKeys, isWithinBackdateWindow, toDayKey } from '@/domain/time/dayKey'
 import { isScheduledOn, scheduleFor, wasArchivedOn } from '@/domain/schedule'
-import { awardXp, type XpAward } from '@/domain/xp'
+import { awardXp, bestConsistencyMultiplierFor, type XpAward } from '@/domain/xp'
 import { DEFAULT_XP_RULES } from '@/domain/rules/xpRules'
 import { db } from '@/data/db'
-import { getHabit } from '@/data/repos/habitRepo'
-import { deleteLog, getLog, listLogsForHabit, upsertLog } from '@/data/repos/logRepo'
+import { getHabit, listActiveHabits } from '@/data/repos/habitRepo'
+import { deleteLog, getLog, listAllLogs, listLogsForHabit, upsertLog } from '@/data/repos/logRepo'
 import { getFocus, setFocusResolution } from '@/data/repos/focusRepo'
 import { getFreezeEvent, refundFreeze } from '@/data/repos/gameStateRepo'
 import { getSettings } from '@/data/repos/settingsRepo'
@@ -103,6 +103,29 @@ export async function logHabit(
   const existing = await getLog(input.habitId, input.dayKey, database)
   const habitLogs = await listLogsForHabit(input.habitId, database)
 
+  /*
+   * The focus bonus is sized against the best-paying habit on the account, so
+   * a focus award needs the whole board rather than just this habit's logs.
+   *
+   * Only loaded when it is actually a focus log. Every other log is the common
+   * case and does not need two extra table scans to compute a number it will
+   * not use.
+   */
+  let bestMultiplier: number | undefined
+  if (isFocus) {
+    const [activeHabits, allLogs] = await Promise.all([
+      listActiveHabits(database),
+      listAllLogs(database),
+    ])
+    bestMultiplier = bestConsistencyMultiplierFor(
+      activeHabits,
+      groupLogsByHabit(allLogs),
+      input.dayKey,
+      settings.weekStartsOn,
+      DEFAULT_XP_RULES,
+    )
+  }
+
   const award = awardXp(
     {
       habit,
@@ -111,6 +134,9 @@ export async function logHabit(
       logs: habitLogs,
       isFocus,
       weekStartsOn: settings.weekStartsOn,
+      // Omitted rather than passed as undefined: `exactOptionalPropertyTypes`
+      // distinguishes the two, and the domain treats absence as "use own".
+      ...(bestMultiplier === undefined ? {} : { bestConsistencyMultiplier: bestMultiplier }),
     },
     DEFAULT_XP_RULES,
   )

@@ -5,7 +5,7 @@ import { compareDayKeys } from '@/domain/time/dayKey'
 import { computeStreak, type StreakResult } from '@/domain/streak'
 import { groupLogsByHabit } from '@/domain/logs'
 import { isHabitDueOn } from '@/domain/schedule'
-import { awardXp, totalXpFromLogs } from '@/domain/xp'
+import { awardXp, bestConsistencyMultiplierFor, totalXpFromLogs } from '@/domain/xp'
 import { levelForXp, type LevelState } from '@/domain/level'
 import { DEFAULT_XP_RULES } from '@/domain/rules/xpRules'
 import { db } from '@/data/db'
@@ -31,12 +31,21 @@ export interface DayView {
    * What the focus bonus is actually worth today, rounded for display.
    *
    * Computed rather than read off the ruleset: the bonus is scaled by the
-   * habit's consistency multiplier, so the flat 25 in `XpRules` is the input,
-   * not the payout. Showing the input would understate the reward by up to 30%
-   * on an established account — and understating the core lever is the same
-   * class of mistake as diluting it.
+   * account's best consistency multiplier, so the flat 25 in `XpRules` is the
+   * input, not the payout. Showing the input would understate the reward by up
+   * to 30% — and understating the core lever is the same class of mistake as
+   * diluting it.
    */
   focusBonus: number
+  /**
+   * True when the bonus is larger than the ruleset's flat figure because it
+   * borrowed the account's best multiplier.
+   *
+   * The card needs this to explain itself. A number that is simply bigger than
+   * the one shown yesterday, with no reason given, reads as a bug — and a
+   * reward system that looks buggy stops being motivating.
+   */
+  focusBonusBoosted: boolean
   freezeTokens: number
   loading: boolean
   activeHabitCount: number
@@ -73,6 +82,7 @@ export function useDayView(selectedDay: DayKey): DayView {
         entries: [],
         level: levelForXp(0, DEFAULT_XP_RULES),
         focusBonus: DEFAULT_XP_RULES.focusBonus,
+        focusBonusBoosted: false,
         freezeTokens: 0,
         loading: true,
         activeHabitCount: 0,
@@ -116,6 +126,11 @@ export function useDayView(selectedDay: DayKey): DayView {
     // A preview award for the focus habit, taken apart for its bonus term. The
     // outcome does not matter here — the bonus is the same for a completion and
     // for the two-minute version, which is the point of it.
+    //
+    // The best multiplier is computed over the same active habits the rest of
+    // this hook uses, so the preview and the award the service will actually
+    // write agree. If they disagreed the card would be advertising a number
+    // the app then refused to pay, which is worse than showing nothing.
     const focusBonus = focus
       ? Math.round(
           awardXp(
@@ -126,6 +141,13 @@ export function useDayView(selectedDay: DayKey): DayView {
               logs: logsByHabit.get(focus.habit.id) ?? [],
               isFocus: true,
               weekStartsOn,
+              bestConsistencyMultiplier: bestConsistencyMultiplierFor(
+                data.habits,
+                logsByHabit,
+                selectedDay,
+                weekStartsOn,
+                DEFAULT_XP_RULES,
+              ),
             },
             DEFAULT_XP_RULES,
           ).breakdown.focusBonus,
@@ -138,6 +160,7 @@ export function useDayView(selectedDay: DayKey): DayView {
       entries,
       level: levelForXp(totalXpFromLogs(data.logs), DEFAULT_XP_RULES),
       focusBonus,
+      focusBonusBoosted: focusBonus > DEFAULT_XP_RULES.focusBonus,
       freezeTokens: data.gameState?.freezeTokens ?? 0,
       loading: false,
       activeHabitCount: data.habits.length,

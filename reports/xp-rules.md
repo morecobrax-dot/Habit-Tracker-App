@@ -183,3 +183,169 @@ review and why it mattered.
 - Three tests asserted `rulesVersion === 'v1'` as a literal. Their intent is
   "the ruleset's version is snapshotted", so they now compare against
   `DEFAULT_XP_RULES.version` and no longer have to chase a deliberate bump.
+
+---
+---
+
+# XP rules v3 — the bonus borrows the account's best multiplier
+
+Approved from the four options above: **option 1**, scale the bonus by the
+account's best multiplier rather than the habit's own. Plus the two conditions
+attached to it, and the invariant test.
+
+**396 tests passing**, up from 381. Typecheck, lint, build clean. Contrast
+audit unchanged at 3 (the styleguide's deliberate demo rows).
+
+---
+
+## The change
+
+```diff
+- const focusBonus = isFocus ? rules.focusBonus * consistencyMultiplier : 0
++ const bonusMultiplier = Math.max(
++   consistencyMultiplier,
++   input.bestConsistencyMultiplier ?? 0,
++ )
++ const focusBonus = isFocus ? rules.focusBonus * bonusMultiplier : 0
+```
+
+The habit's own multiplier still scales its own base XP — that stays honest
+about the habit's own record. Only the **bonus** borrows, because the bonus
+exists to win a comparison against whatever else the user could do today, so it
+is sized against exactly that.
+
+`Math.max` rather than a plain read. The best is computed across all active
+habits and is therefore `>=` this habit's own by construction; taking the max
+states that, and means a stale or partial value can only ever cost the user XP,
+never fabricate it. There is a test for it.
+
+`bestConsistencyMultiplier` is **optional**. Omitted, the habit's own multiplier
+is used — so a caller that forgets under-pays rather than inventing a number,
+and all 381 existing tests kept passing untouched. Rules bumped to **v3**; logs
+under v1 and v2 keep their version and their banked XP.
+
+### The invariant, end to end
+
+`tests/services/focusCap.test.ts` runs it through the **real logging service**
+against a real IndexedDB, not through the arithmetic:
+
+```
+rival    tier 3, completed 14/14 days   multiplier 1.30   →  39 XP
+avoided  tier 1, zero history           multiplier 1.00   →  43 XP
+```
+
+It asserts the two multipliers really are at the extremes first — otherwise the
+comparison would prove nothing — and then that the focus award beats the rival.
+This is the property v1 and v2 both failed, and it now fails loudly if it comes
+back.
+
+---
+
+## Condition: focus really is one habit per day
+
+Confirmed at three levels, and asserted at each:
+
+1. **`dayKey` is the PRIMARY KEY** of the `dailyFocus` table
+   (`dailyFocus: 'dayKey, habitId, resolved'`). IndexedDB physically cannot
+   hold two rows for a day — a second `add` rejects. This is the load-bearing
+   one: it is enforced by the store, not by application code a future caller
+   could route around.
+2. **`claimFocus`** is a read-then-add inside a `rw` transaction, returning the
+   existing row rather than overwriting. Three concurrent claims converge on one
+   habit.
+3. **`logHabit`** derives `isFocus` from that single row, so at most one log per
+   day can carry `wasFocus`.
+
+Nine tests, including the one that matters in award terms: with a maxed-out
+habit sitting on the same board, a **non-focus** habit gets a `focusBonus` of
+exactly 0. The cap is what stops "borrow the best multiplier" becoming a
+blanket pay rise, and `xp.ts` now says so at the point of the borrow.
+
+---
+
+## Condition: the UI explains the number
+
+The focus card shows the real figure with a line under it:
+
+```
+                                    ┌──────────────┐
+                                    │  +33 bonus   │
+                                    └──────────────┘
+                            matched to your best streak
+```
+
+Verified on a rendered board where one habit holds a 20-day streak and the
+focus habit has none: 25 × 1.30 = 32.5 → **33**, with the explanation showing.
+The line only appears when the bonus is actually above the flat figure, so a
+single-habit account sees a plain `+25` and no unexplained claim.
+
+The preview uses the same `bestConsistencyMultiplierFor` over the same set of
+active habits the logging service uses, so the card cannot advertise a number
+the app then refuses to pay.
+
+---
+
+## One case that only draws
+
+Worth knowing rather than discovering:
+
+| focus habit, no streak | rival at 1.30 | |
+|---|---|---|
+| **completed** | 43 vs 39 | wins by 4 |
+| **two-minute minimum** | 39 vs 39 | **draws** |
+| completed, vs a *tier-4* rival | 43 vs 59 | loses — deliberate |
+
+The minimum version lands on exactly the same number. It is a rounding
+boundary, not a design position: `6 + 32.5 = 38.5` rounds to 39. Nudging
+`focusBonus` from 25 to 26 breaks the tie. I left it alone — it is a draw
+rather than a loss, and retuning a headline constant to win by one point is the
+kind of change that should be asked for rather than slipped in. Pinned in a
+test named `draws rather than wins on the two-minute version`.
+
+The tier-4 exemption is unchanged and deliberate: paying more for two minutes
+of admin than for a completed hour of deep work would distort the board.
+
+---
+
+## A stale test I had to catch
+
+The worked-week replay calls `awardXp` directly. It did not pass a best
+multiplier, so it silently fell back to v2 behaviour — **it passed, while no
+longer modelling the app**. A test that passes for the wrong reason is worse
+than one that fails, so it now computes the board-wide best exactly as the
+service does.
+
+That moved the week 500 → 504, derived by hand rather than accepted:
+
+```
+Tuesday  admin tier-2 partial. Window is Aug 31 alone; the four other habits
+         each sit at 1.06 (one completion against the minDenominator floor of
+         5) and admin has no history.   round(10.8 + 25 x 1.06) = 37  (was 36)
+
+Friday   admin tier-2 complete. Own multiplier 1.036; best on the board is
+         walk at 1.18 (3 credited over 4 due).
+                                        round(18.648 + 25 x 1.18) = 48 (was 45)
+```
+
+Still a small move on a first week, for the same reason as last time: nothing
+has had time to reach the top of the range. The mechanism matters on an
+established account, which is what the service-level test covers.
+
+Two other tests were pinning v2's now-fixed limitation and were replaced. The
+independent formula cross-check in `xp.test.ts` gained a second case for the
+borrowed path, since that is the arithmetic the app now actually runs.
+
+---
+
+## Tests added
+
+396, up from 381.
+
+- **`tests/services/focusCap.test.ts`** (9) — the structural cap at all three
+  levels, and the invariant end to end through the real service.
+- `bestConsistencyMultiplierFor` — highest on the board, neutral 1 for an empty
+  account, 1 when nothing has history.
+- The `max` guard: a too-low borrowed value cannot shrink an award.
+- The cross-check for the borrowed path.
+- `draws rather than wins on the two-minute version`.
+- `sizes the bonus against the best-paying habit, not the focus habit`.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { awardXp } from '@/domain/xp'
+import { awardXp, bestConsistencyMultiplierFor } from '@/domain/xp'
 import { levelForXp } from '@/domain/level'
 import { DEFAULT_XP_RULES } from '@/domain/rules/xpRules'
 import { NO_RULES_VERSION } from '@/domain/logs'
@@ -132,6 +132,16 @@ function playWeek(): { days: DayResult[]; total: number; focusAwards: number[] }
   for (const { day, entries } of WEEK) {
     let dayXp = 0
 
+    // The whole board, as the logging service sees it, so the focus bonus can
+    // be sized against the best-paying habit. Without this the replay would
+    // quietly fall back to v2 behaviour and stop modelling the real app.
+    const boardLogs = new Map<string, HabitLog[]>(
+      (Object.keys(HABITS) as HabitKey[]).map((key) => [
+        HABITS[key].id,
+        logsByHabit.get(key) ?? [],
+      ]),
+    )
+
     for (const entry of entries) {
       const h = HABITS[entry.habit]
       const priorLogs = logsByHabit.get(entry.habit) ?? []
@@ -144,6 +154,13 @@ function playWeek(): { days: DayResult[]; total: number; focusAwards: number[] }
           logs: priorLogs,
           isFocus: entry.focus === true,
           weekStartsOn: 1,
+          bestConsistencyMultiplier: bestConsistencyMultiplierFor(
+            Object.values(HABITS),
+            boardLogs,
+            day,
+            1,
+            R,
+          ),
         },
         R,
       )
@@ -182,20 +199,22 @@ describe('a realistic first week', () => {
     // Pinned against the shipped rules. If a constant is retuned, this fails
     // and the new figure has to be looked at and accepted deliberately.
     //
-    // 499 under v1, 500 under v2. The whole difference is Friday's admin log,
-    // derived by hand rather than accepted from the runner: the habit is 3x a
-    // week and four days old, so its expected completions (1.71) fall under
-    // the minDenominator floor of 5, giving a rate of 0.6/5 = 0.12 and a
-    // multiplier of 1.036. v1 paid round(18.648) + 25 = 44; v2 pays
-    // round(18.648 + 25.900) = 45. Tuesday's award is unchanged at 36, because
-    // that habit had no history yet and its multiplier was exactly 1.00.
+    // 499 under v1, 500 under v2, 504 under v3. Both focus awards move, and
+    // both were derived by hand rather than taken from the runner:
     //
-    // A one-XP move on a whole week is the point, not a disappointment: in a
-    // *first* week consistency has barely ramped, so the v1 defect is nearly
-    // invisible here. It only bites on an established account — which is both
-    // why it survived review and why it mattered. See the mature-account test
-    // below for the size of it at full consistency.
-    expect(total).toBe(500)
+    //   Tuesday  admin tier-2 partial. Window is Aug 31 alone, where the four
+    //            other habits each sit at 1.06 (one completion against the
+    //            minDenominator floor of 5) and admin itself has no history.
+    //            round(10.8 + 25 x 1.06) = 37, up from 36.
+    //   Friday   admin tier-2 complete. Own multiplier 1.036; the best on the
+    //            board is walk at 1.18 (3 credited over 4 due, floored at 5).
+    //            round(18.648 + 25 x 1.18) = 48, up from 45.
+    //
+    // Still a small move on a whole week, and for the same reason as before:
+    // in a first week nothing has had time to reach the top of the range, so
+    // the borrowed multiplier is barely above 1. The mechanism matters on an
+    // established account — see `tests/services/focusCap.test.ts`.
+    expect(total).toBe(504)
   })
 
   it('lands mid-curve rather than stalling or running away', () => {
@@ -247,7 +266,7 @@ describe('a realistic first week', () => {
     // deliberate limit rather than an accident: paying more for two minutes of
     // admin than for a completed hour of deep work would distort the board.
     const tuesdayFocusAward = focusAwards[0]!
-    expect(tuesdayFocusAward).toBe(36)
+    expect(tuesdayFocusAward).toBe(37)
     expect(tuesdayFocusAward).toBeGreaterThan(30) // beats a full tier-3 completion
   })
 
@@ -272,6 +291,10 @@ describe('a realistic first week', () => {
    * larger claim is false under v1 and v2 alike. The test below pins it.
    */
   it('pays most for the avoided thing at every consistency level, like for like', () => {
+    // Both terms at the same multiplier: the case where the focus habit *is*
+    // the best-paying habit on the board, so it borrows its own figure. The
+    // unequal case — a neglected focus against a well-kept rival — is the one
+    // v3 exists for and lives in `tests/services/focusCap.test.ts`.
     const focusMinimum = (mult: number) =>
       Math.round(
         R.baseXpByDifficulty[1] * R.completionFactors.partial * mult + R.focusBonus * mult,
@@ -293,7 +316,9 @@ describe('a realistic first week', () => {
   it('still refuses to out-earn a full tier-4 completion', () => {
     // The limit the flat-in-difficulty rule exists to keep. Paying more for two
     // minutes of admin than for a completed hour of deep work would distort the
-    // board, and scaling the bonus by consistency must not have broken it.
+    // board, and neither v2 nor v3 may break it. Same-multiplier again; the
+    // borrowed case is bounded by the same argument, since the bonus is capped
+    // at the top of the range either way.
     const focusMinimum = (mult: number) =>
       Math.round(
         R.baseXpByDifficulty[1] * R.completionFactors.partial * mult + R.focusBonus * mult,
@@ -321,57 +346,73 @@ describe('a realistic first week', () => {
   })
 
   /**
-   * THE GAP v2 NARROWS BUT DOES NOT CLOSE — pinned so it stays visible.
+   * THE GAP IS CLOSED — the arithmetic half.
    *
-   * The consistency multiplier is per-habit, and the focus habit is the
-   * *neglected* one by construction, so its multiplier is structurally the
-   * lowest on the board. It competes against habits that are being kept up,
-   * which sit near the top of the range. Those are different multipliers, so
-   * the like-for-like invariant above does not reach this case.
+   * v2 scaled the bonus by the focus habit's *own* multiplier, which left a
+   * neglected habit paying less than a well-kept tier-3 completion: the
+   * multiplier is per-habit and the focus habit is the neglected one by
+   * construction. v3 scales the bonus by the account's *best* multiplier
+   * instead, so the bonus is sized against the best-paying alternative — which
+   * is the comparison it exists to win.
    *
-   * v2 closes most of the distance — at 10 of the last 14 days the shortfall
-   * goes from 7 XP to 1 — but a genuinely neglected habit still pays less than
-   * a well-kept tier-3 completion. Fixing *that* means changing what the bonus
-   * is scaled by, which is a decision about reward philosophy rather than a
-   * contract violation, so it is not taken here.
+   * This checks the sums. The end-to-end proof, through the real logging
+   * service with a maxed-out rival on the same day, is
+   * `tests/services/focusCap.test.ts`.
    */
-  it('still under-pays a neglected focus habit against a well-kept rival', () => {
-    const mult = (rate: number) => 1 + R.consistency.maxBonus * Math.min(1, rate)
-    const focusAward = (rate: number) => {
-      const m = mult(rate)
-      return Math.round(
-        R.baseXpByDifficulty[1] * R.completionFactors.partial * m + R.focusBonus * m,
-      )
-    }
-    const wellKeptTier3 = Math.round(R.baseXpByDifficulty[3] * mult(1))
+  it('sizes the bonus against the best-paying habit, not the focus habit', () => {
+    const max = 1 + R.consistency.maxBonus
+    // A focus habit with no streak at all, on a board where something else is
+    // at the top of the range.
+    const focusComplete = Math.round(R.baseXpByDifficulty[1] * 1 * 1 + R.focusBonus * max)
+    const wellKeptTier3 = Math.round(R.baseXpByDifficulty[3] * max)
 
-    // A habit genuinely being avoided — the case the focus mechanic exists for.
-    expect(focusAward(0)).toBeLessThan(wellKeptTier3)
-    expect(focusAward(4 / 14)).toBeLessThan(wellKeptTier3)
-
-    // v2's improvement, stated as a number so it is not mistaken for a fix.
-    const v1At10of14 = Math.round(
-      R.baseXpByDifficulty[1] * R.completionFactors.partial * mult(10 / 14),
-    ) + R.focusBonus
-    expect(v1At10of14).toBe(32)
-    expect(focusAward(10 / 14)).toBe(38)
+    expect(focusComplete).toBe(43)
     expect(wellKeptTier3).toBe(39)
+    expect(focusComplete).toBeGreaterThan(wellKeptTier3)
+
+    // What v2 would have paid the same habit, for the size of the change.
+    const v2 = Math.round(R.baseXpByDifficulty[1] * 1 * 1) + R.focusBonus
+    expect(v2).toBe(35)
+    expect(v2).toBeLessThan(wellKeptTier3)
   })
 
-  it('is worth ~30% more on a mature account than v1 would have paid', () => {
+  /**
+   * THE ONE CASE THAT ONLY TIES, pinned so it is a decision and not a surprise.
+   *
+   * The *two-minute version* of a neglected tier-1 focus lands on exactly the
+   * same number as a well-kept tier-3 completion: 39 against 39. Completing it
+   * wins by 4; the minimum version draws.
+   *
+   * That is a rounding boundary rather than a design position — 6 + 32.5 is
+   * 38.5, which rounds to 39. Nudging `focusBonus` to 26 would break the tie.
+   * Left alone because it is a tie rather than a loss, and because retuning a
+   * headline constant to win by one point is the sort of change that should be
+   * asked for rather than slipped in.
+   */
+  it('draws rather than wins on the two-minute version', () => {
+    const max = 1 + R.consistency.maxBonus
+    const focusMinimum = Math.round(
+      R.baseXpByDifficulty[1] * R.completionFactors.partial * 1 + R.focusBonus * max,
+    )
+    const wellKeptTier3 = Math.round(R.baseXpByDifficulty[3] * max)
+    expect(focusMinimum).toBe(39)
+    expect(wellKeptTier3).toBe(39)
+    expect(focusMinimum).toBeGreaterThanOrEqual(wellKeptTier3)
+  })
+
+  it('is worth substantially more than v1 would have paid', () => {
     // What the worked week cannot show, because a first week never gets there.
-    // At the top of the consistency range the bonus is the dominant term in a
-    // focus award, so diluting it was not a rounding-level problem.
+    // At the top of the range the bonus is the dominant term in a focus award,
+    // so diluting it was not a rounding-level problem.
     const max = 1 + R.consistency.maxBonus
     const v1 = Math.round(R.baseXpByDifficulty[1] * R.completionFactors.partial * max) +
       R.focusBonus
-    const v2 = Math.round(
+    const v3 = Math.round(
       R.baseXpByDifficulty[1] * R.completionFactors.partial * max + R.focusBonus * max,
     )
     expect(v1).toBe(33)
-    expect(v2).toBe(40)
-    // Same shape as every other term now: a 30% multiplier moves it 30%.
-    expect(v2 / v1).toBeGreaterThan(1.2)
+    expect(v3).toBe(40)
+    expect(v3 / v1).toBeGreaterThan(1.2)
   })
 
   it('pays the focus bonus on the minimum version and on a completion alike', () => {

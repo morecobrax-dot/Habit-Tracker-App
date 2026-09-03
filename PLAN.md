@@ -113,18 +113,23 @@ day, which reads as punishment. And the approved worked example was ~3%
 optimistic: the real week produces 499 XP, now pinned as a test rather
 than living in prose.
 
-**Closed in `reports/xp-v2.md`,** outside the plan sequence. The flat
-focus bonus was not a formula preference — it broke a contract `xp.ts`
-documented itself, and `CLAUDE.md` calls the daily focus the core lever,
-so it was a defect. The bonus now scales with consistency; rules bumped
-to v2 so no banked XP moves.
+**Closed in `reports/xp-rules.md`,** outside the plan sequence, over two
+rounds. The flat focus bonus broke a contract `xp.ts` documented itself,
+and `CLAUDE.md` calls the daily focus the core lever, so it was a defect
+rather than a formula preference. v2 scaled the bonus by the habit's own
+consistency; v3 scales it by the account's *best*, because the focus
+habit is the neglected one by construction and its own multiplier is
+structurally the lowest on the board.
 
-**Still open, and yours to decide:** that fix restores the invariant
-*like for like*, but the multiplier is per-habit and the focus habit is
-the neglected one by construction — so against a well-kept rival it
-still under-pays. Four options in the report; I did not pick one,
-because it changes reward philosophy rather than fixing a broken
-contract.
+The property is now asserted end to end through the real logging
+service: a rival at 1.30 pays 39, the untouched focus habit pays 43.
+Borrowing is safe only because focus is capped at one habit per day —
+`dayKey` is the primary key of the `dailyFocus` table — which
+`tests/services/focusCap.test.ts` asserts at all three levels. The focus
+card explains the larger number rather than just showing it.
+
+Rules at v3; logs written under v1 and v2 keep their version and their
+banked XP.
 - [x] XP per log based on difficulty, completion type, streak multiplier
       (capped), and daily-focus bonus.
 - [x] Level curve: fast early, progressively slower.

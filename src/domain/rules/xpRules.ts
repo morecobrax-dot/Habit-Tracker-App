@@ -39,9 +39,9 @@ export interface XpRules {
    * XP added for completing the day's focus habit, at any credited level.
    *
    * Flat in *difficulty* — a dreaded two-minute task should out-earn a
-   * comfortable big one — but scaled by the consistency multiplier along with
-   * everything else, so it does not shrink into irrelevance as an account
-   * matures. `domain/xp.ts` has the reasoning and the numbers.
+   * comfortable big one — but scaled by the account's *best* consistency
+   * multiplier, so it is sized against the best-paying thing the user could do
+   * instead. `domain/xp.ts` has the reasoning and the numbers.
    */
   focusBonus: number
 
@@ -55,15 +55,22 @@ export interface XpRules {
 
 export const DEFAULT_XP_RULES: XpRules = {
   /*
-   * v2: the focus bonus is scaled by the consistency multiplier rather than
-   * added flat. v1 diluted it as an account matured, so the app stopped paying
-   * most for its own core lever — see `domain/xp.ts`.
+   * v3: the focus bonus is scaled by the account's *best* consistency
+   * multiplier rather than the focus habit's own.
+   *
+   * v1 added it flat, so it was diluted as an account matured. v2 scaled it by
+   * the habit's own multiplier, which fixed the like-for-like comparison but
+   * not the lived one — the focus habit is the neglected one by construction,
+   * so its own multiplier is the lowest on the board. v3 sizes the bonus
+   * against the best-paying alternative, which is the comparison it exists to
+   * win. See `domain/xp.ts`.
    *
    * Bumping the version is the whole point of having one. Logs written under
-   * v1 keep their `rulesVersion` and the XP they banked; nothing is recomputed
-   * and no total moves. Only awards made from here on use the new arithmetic.
+   * v1 or v2 keep their `rulesVersion` and the XP they banked; nothing is
+   * recomputed and no total moves. Only awards made from here on use the new
+   * arithmetic.
    */
-  version: 'v2',
+  version: 'v3',
 
   // Mildly superlinear: choosing the hard thing should pay, but not so much
   // that easy habits feel pointless.
@@ -81,7 +88,7 @@ export const DEFAULT_XP_RULES: XpRules = {
 
   consistency: { windowDays: 14, minDenominator: 5, maxBonus: 0.3 },
 
-  // Flat in difficulty, scaled by consistency — see `domain/xp.ts`.
+  // Flat in difficulty, scaled by the account's best consistency multiplier.
   focusBonus: 25,
 
   level: { baseXp: 40, exponent: 1.35 },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { awardXp, consistencyRate, consistencyMultiplierFor, totalXpFromLogs } from '@/domain/xp'
+import { awardXp, bestConsistencyMultiplierFor, consistencyRate, consistencyMultiplierFor, totalXpFromLogs } from '@/domain/xp'
 import { DEFAULT_XP_RULES, type XpRules } from '@/domain/rules/xpRules'
 import type { DayKey, Habit, HabitLog, LogOutcome, Schedule } from '@/domain/types'
 
@@ -45,7 +45,11 @@ const log = (dayKey: DayKey, outcome: LogOutcome = 'complete', xpAwarded = 0): H
  * Its value is that it is *independent*: if the engine and this disagree, one
  * of them is wrong and the test says so. That only works if it is kept in step
  * with the documented formula deliberately, which is what happened when the
- * focus bonus moved inside the multiplier in v2.
+ * bonus moved inside the multiplier (v2) and again when it started borrowing
+ * the account's best multiplier (v3).
+ *
+ * `bonusMultiplier` defaults to the habit's own, which is the engine's
+ * behaviour when no best multiplier is supplied.
  */
 const expectedXp = (
   base: number,
@@ -53,9 +57,10 @@ const expectedXp = (
   rate: number,
   focusBonus: number,
   rules: XpRules = R,
+  bonusMultiplier?: number,
 ) => {
-  const multiplier = 1 + rules.consistency.maxBonus * rate
-  return Math.round(base * factor * multiplier + focusBonus * multiplier)
+  const own = 1 + rules.consistency.maxBonus * rate
+  return Math.round(base * factor * own + focusBonus * (bonusMultiplier ?? own))
 }
 
 describe('base awards', () => {
@@ -352,6 +357,81 @@ describe('formula cross-check', () => {
     // Independently: 4.6 weighted completions over 14 scheduled days.
     const rate = 4.6 / 14
     expect(award.total).toBe(expectedXp(45, 1.0, rate, 25))
+  })
+
+  it('matches the independent formula when the bonus borrows a better multiplier', () => {
+    // The primary path from v3 on: the bonus is scaled by a multiplier that
+    // did not come from this habit. Cross-checked the same way, because that
+    // is the arithmetic the app now actually runs.
+    const h = habit({ difficulty: 4, startDayKey: '2026-01-01' })
+    const logs = [
+      log('2026-01-10'),
+      log('2026-01-11', 'partial'),
+      log('2026-01-12'),
+      log('2026-01-13'),
+      log('2026-01-14'),
+    ]
+    const best = 1 + R.consistency.maxBonus
+    const award = awardXp(
+      {
+        habit: h,
+        outcome: 'complete',
+        dayKey: '2026-01-15',
+        logs,
+        isFocus: true,
+        weekStartsOn: 1,
+        bestConsistencyMultiplier: best,
+      },
+      R,
+    )
+
+    const rate = 4.6 / 14
+    expect(award.total).toBe(expectedXp(45, 1.0, rate, 25, R, best))
+    // And it really did borrow: the bonus term exceeds the flat figure.
+    expect(award.breakdown.focusBonus).toBeCloseTo(R.focusBonus * best)
+  })
+
+  it('never lets a borrowed multiplier reduce the bonus below the habit’s own', () => {
+    // The `max` guard. A caller passing a stale or too-low value must not be
+    // able to make an award smaller than it would have been without one.
+    const h = habit({ difficulty: 4, startDayKey: '2026-01-01' })
+    const logs = [log('2026-01-10'), log('2026-01-11'), log('2026-01-12')]
+    const shared = { habit: h, outcome: 'complete' as const, dayKey: '2026-01-15', logs, isFocus: true, weekStartsOn: 1 as const }
+
+    const withoutBest = awardXp(shared, R)
+    const withTooLow = awardXp({ ...shared, bestConsistencyMultiplier: 0.5 }, R)
+    expect(withTooLow.total).toBe(withoutBest.total)
+    expect(withTooLow.breakdown.focusBonus).toBe(withoutBest.breakdown.focusBonus)
+  })
+})
+
+describe('bestConsistencyMultiplierFor', () => {
+  it('is the highest multiplier on the board', () => {
+    const weak = habit({ difficulty: 2, startDayKey: '2026-01-01' })
+    const strong = { ...habit({ difficulty: 2, startDayKey: '2026-01-01' }), id: 'strong' }
+    const strongLogs = Array.from({ length: 14 }, (_, i) =>
+      log(`2026-01-${String(i + 1).padStart(2, '0')}`),
+    )
+    const best = bestConsistencyMultiplierFor(
+      [weak, strong],
+      new Map([
+        [weak.id, []],
+        [strong.id, strongLogs],
+      ]),
+      '2026-01-15',
+      1,
+      R,
+    )
+    expect(best).toBeCloseTo(1 + R.consistency.maxBonus)
+  })
+
+  it('is the neutral 1 for an account with no habits', () => {
+    expect(bestConsistencyMultiplierFor([], new Map(), '2026-01-15', 1, R)).toBe(1)
+  })
+
+  it('is 1 when nothing has any history yet', () => {
+    const h = habit({ startDayKey: '2026-01-14' })
+    expect(bestConsistencyMultiplierFor([h], new Map([[h.id, []]]), '2026-01-15', 1, R)).toBe(1)
   })
 })
 

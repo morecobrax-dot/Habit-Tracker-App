@@ -114,6 +114,7 @@ export function TodayRoute() {
               entry={view.focus}
               day={activeDay}
               bonus={view.focusBonus}
+              bonusBoosted={view.focusBonusBoosted}
               onError={setError}
               onGain={noteGain}
             />
@@ -390,6 +391,7 @@ function FocusCard({
   entry,
   day,
   bonus,
+  bonusBoosted,
   onError,
   onGain,
 }: {
@@ -397,6 +399,8 @@ function FocusCard({
   day: DayKey
   /** The bonus as it will actually be paid, not the ruleset's flat input. */
   bonus: number
+  /** True when that figure is larger because it borrowed the best multiplier. */
+  bonusBoosted: boolean
   onError: (message: string | null) => void
   onGain: (xp: number) => void
 }) {
@@ -457,8 +461,19 @@ function FocusCard({
       <div className="relative flex items-start justify-between gap-3">
         <p className="label-caps text-text-secondary">Today's focus</p>
         {!done && (
-          <span className="shrink-0 rounded-xs border border-gold/30 px-2 py-0.5 text-micro tabular-nums text-gold">
-            +{bonus} bonus
+          <span className="flex shrink-0 flex-col items-end gap-0.5">
+            <span className="rounded-xs border border-gold/30 px-2 py-0.5 text-micro tabular-nums text-gold">
+              +{bonus} bonus
+            </span>
+            {/*
+              An unexplained large number reads as a bug, and a reward system
+              that looks buggy stops being motivating. This says where the size
+              came from: the bonus is matched to the best-paying habit on the
+              board, so the avoided thing is never quietly out-bid.
+            */}
+            {bonusBoosted && (
+              <span className="text-micro text-text-muted">matched to your best streak</span>
+            )}
           </span>
         )}
       </div>
