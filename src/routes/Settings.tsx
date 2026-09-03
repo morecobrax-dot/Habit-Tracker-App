@@ -20,11 +20,11 @@ export function SettingsRoute() {
   return (
     <div className="flex flex-col gap-5 pb-6">
       <header className="pt-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <h1 className="text-title font-semibold tracking-tight">Settings</h1>
       </header>
 
       <Card className="flex flex-col gap-5">
-        <h2 className="text-sm font-semibold tracking-wide text-text-secondary uppercase">Your day</h2>
+        <h2 className="label-caps text-text-secondary">Your day</h2>
 
         <Field
           label="A new day starts at"
@@ -73,7 +73,7 @@ export function SettingsRoute() {
           </Select>
         </Field>
 
-        <div className="rounded-card border border-border bg-surface-raise px-3 py-2.5 text-xs leading-relaxed text-text-muted">
+        <div className="rounded-card border border-border bg-surface-raise px-3 py-2.5 text-micro leading-relaxed text-text-muted">
           Right now it is <span className="text-text-secondary">{today}</span> for you. This day ends at{' '}
           <span className="text-text-secondary">
             {String(dayContext.dayStartHour).padStart(2, '0')}:00
@@ -93,7 +93,7 @@ export function SettingsRoute() {
       </Card>
 
       <Card className="flex flex-col gap-4">
-        <h2 className="text-sm font-semibold tracking-wide text-text-secondary uppercase">Logging</h2>
+        <h2 className="label-caps text-text-secondary">Logging</h2>
         <Field
           label="Backdating window"
           hint="How far back you can log. Kept short on purpose: reconstructing last week from memory is fiction, and fiction in the log makes every number downstream meaningless."
@@ -114,7 +114,7 @@ export function SettingsRoute() {
 
       <DataCard />
 
-      <p className="px-1 text-xs leading-relaxed text-text-muted">
+      <p className="px-1 text-micro leading-relaxed text-text-muted">
         Everything is stored on this device only. Nothing is uploaded, and there is no account.
         {' '}
         {WEEKDAY_NAMES[settings.weekStartsOn]}-start weeks.
@@ -194,8 +194,8 @@ function DataCard() {
   return (
     <Card className="flex flex-col gap-4">
       <div>
-        <h2 className="text-sm font-semibold tracking-wide text-text-secondary uppercase">Your data</h2>
-        <p className="mt-2 text-xs leading-relaxed text-text-muted">
+        <h2 className="label-caps text-text-secondary">Your data</h2>
+        <p className="mt-2 text-micro leading-relaxed text-text-muted">
           This app has no backend, so this device is the only copy. Browsers can evict local storage
           under pressure. Export occasionally.
         </p>
@@ -224,7 +224,7 @@ function DataCard() {
         <p
           role="status"
           /* Failure is carried by weight rather than by red text. */
-          className={`text-xs ${status.tone === 'ok' ? 'text-text-secondary' : 'font-semibold text-text-primary'}`}
+          className={`text-micro ${status.tone === 'ok' ? 'text-text-secondary' : 'font-semibold text-text-primary'}`}
         >
           {status.message}
         </p>

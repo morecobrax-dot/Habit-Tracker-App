@@ -129,12 +129,12 @@ export function HabitEditorRoute() {
     navigate('/habits', { replace: true })
   }
 
-  if (loading) return <p className="py-8 text-sm text-text-muted">Loading…</p>
+  if (loading) return <p className="py-8 text-body text-text-muted">Loading…</p>
 
   if (notFound) {
     return (
       <div className="flex flex-col items-start gap-4 py-8">
-        <p className="text-sm text-text-secondary">That habit no longer exists.</p>
+        <p className="text-body text-text-secondary">That habit no longer exists.</p>
         <Button onClick={() => navigate('/habits', { replace: true })}>Back to habits</Button>
       </div>
     )
@@ -149,7 +149,7 @@ export function HabitEditorRoute() {
       }}
     >
       <header className="flex items-center justify-between pt-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
+        <h1 className="text-title font-semibold tracking-tight">
           {isEditing ? 'Edit habit' : 'New habit'}
         </h1>
         <Button variant="ghost" onClick={() => navigate(-1)}>
@@ -327,7 +327,7 @@ function ScheduleEditor({
                   onChange({ kind: 'timesPerWeek', target: n })
                 }}
                 className={[
-                  'h-11 flex-1 rounded-lg border text-sm font-medium transition-colors',
+                  'h-11 flex-1 rounded-lg border text-body font-medium transition-colors',
                   schedule.target === n
                     ? 'border-primary bg-primary text-white'
                     : 'border-border bg-surface-raise text-text-secondary hover:bg-surface-raise',
@@ -337,7 +337,7 @@ function ScheduleEditor({
               </button>
             ))}
           </div>
-          <p className="text-xs leading-relaxed text-text-muted">
+          <p className="text-micro leading-relaxed text-text-muted">
             No particular day — you choose when. The streak counts consecutive weeks you hit the
             target, so there's no mid-week deadline to miss.
           </p>
@@ -357,7 +357,7 @@ function ScheduleEditor({
                 aria-label={name}
                 onClick={() => toggleDay(day)}
                 className={[
-                  'h-11 flex-1 rounded-lg border text-xs font-medium transition-colors',
+                  'h-11 flex-1 rounded-lg border text-micro font-medium transition-colors',
                   selected
                     ? 'border-primary bg-primary text-white'
                     : 'border-border bg-surface-raise text-text-secondary hover:bg-surface-raise',

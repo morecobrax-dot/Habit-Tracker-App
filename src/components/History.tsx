@@ -183,7 +183,7 @@ export function WeekBars({
 
   return (
     <section className="flex flex-col gap-2.5">
-      <h2 className="label-caps text-text-secondary">This week</h2>
+      <h2 className="label-caps text-text-secondary">Day by day</h2>
 
       <div className="flex items-end gap-1.5">
         {days.map((day, index) => (

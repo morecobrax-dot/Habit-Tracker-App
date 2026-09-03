@@ -94,9 +94,21 @@ await page.waitForSelector("text=Today's focus")
 await page.click('li button[aria-label^="Mark"]').catch(() => {})
 await page.waitForTimeout(400)
 
+// Captured before navigating: the detail route needs a real habit id.
+const firstHabitId = await page.evaluate(async () => {
+  const open = indexedDB.open('habit-tracker')
+  const db = await new Promise((res) => { open.onsuccess = () => res(open.result) })
+  const rows = await new Promise((res) => {
+    const r = db.transaction('habits', 'readonly').objectStore('habits').getAll()
+    r.onsuccess = () => res(r.result)
+  })
+  return rows[0]?.id ?? null
+})
+
 const SCREENS = [
   ['Today', '#/today'],
   ['Habits', '#/habits'],
+  ['Habit detail', firstHabitId ? `#/habits/${firstHabitId}` : '#/habits'],
   ['Habit editor', '#/habits/new'],
   ['Settings', '#/settings'],
   ['Styleguide', '#/styleguide'],

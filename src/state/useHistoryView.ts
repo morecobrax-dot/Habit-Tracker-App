@@ -4,6 +4,9 @@ import type { DayKey, Weekday } from '@/domain/types'
 import { addDays, weekdayOf } from '@/domain/time/dayKey'
 import { daysOfWeek, startOfWeek } from '@/domain/time/week'
 import { rollupDays, type DayRollup } from '@/domain/history'
+import { reviewWeek, type WeekReview } from '@/domain/review'
+import { computeStreak } from '@/domain/streak'
+import { groupLogsByHabit } from '@/domain/logs'
 import { DEFAULT_XP_RULES } from '@/domain/rules/xpRules'
 import { db } from '@/data/db'
 import { useApp } from '@/state/AppContext'
@@ -16,7 +19,18 @@ export interface HistoryView {
   weeks: DayRollup[][]
   /** The current week, for the bar chart. Same rollups as the last heatmap column. */
   thisWeek: DayRollup[]
+  /** The current week summarised: rate, best streak, what is struggling. */
+  review: WeekReview
   loading: boolean
+}
+
+const EMPTY_REVIEW: WeekReview = {
+  completionRate: 0,
+  due: 0,
+  showedUp: 0,
+  best: null,
+  needsAttention: null,
+  idle: true,
 }
 
 /**
@@ -34,14 +48,15 @@ export function useHistoryView(): HistoryView {
   const { today, settings } = useApp()
 
   const data = useLiveQuery(async () => {
-    const [habits, logs] = await Promise.all([
+    const [habits, logs, freezeEvents] = await Promise.all([
       // Archived habits are excluded here as they are everywhere else. Their
       // paused days are already not-due, so including them would only add
       // columns of nothing.
       db.habits.where('status').equals('active').toArray(),
       db.logs.toArray(),
+      db.freezeEvents.toArray(),
     ])
-    return { habits, logs }
+    return { habits, logs, freezeEvents }
   }, [])
 
   return useMemo<HistoryView>(() => {
@@ -50,7 +65,7 @@ export function useHistoryView(): HistoryView {
     const to = addDays(currentWeekStart, 6)
 
     if (!data) {
-      return { weeks: [], thisWeek: [], loading: true }
+      return { weeks: [], thisWeek: [], review: EMPTY_REVIEW, loading: true }
     }
 
     const days = rollupDays(
@@ -65,9 +80,42 @@ export function useHistoryView(): HistoryView {
     const weeks: DayRollup[][] = []
     for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7))
 
+    // Streaks come from `computeStreak` rather than being re-derived here.
+    // Two implementations of "how long is this streak" is how the review ends
+    // up disagreeing with the number on the same screen.
+    const logsByHabit = groupLogsByHabit(data.logs)
+    const frozenByHabit = new Map<string, Set<DayKey>>()
+    for (const event of data.freezeEvents) {
+      const set = frozenByHabit.get(event.habitId) ?? new Set<DayKey>()
+      set.add(event.dayKey)
+      frozenByHabit.set(event.habitId, set)
+    }
+
+    const streaks = new Map<string, number>(
+      data.habits.map((habit) => [
+        habit.id,
+        computeStreak({
+          habit,
+          logs: logsByHabit.get(habit.id) ?? [],
+          frozenDays: frozenByHabit.get(habit.id) ?? new Set<DayKey>(),
+          today,
+          weekStartsOn: settings.weekStartsOn,
+        }).current,
+      ]),
+    )
+
     return {
       weeks,
       thisWeek: weeks[weeks.length - 1] ?? [],
+      review: reviewWeek({
+        habits: data.habits,
+        logs: data.logs,
+        from: currentWeekStart,
+        to: addDays(currentWeekStart, 6),
+        today,
+        factors: DEFAULT_XP_RULES.completionFactors,
+        streaks,
+      }),
       loading: false,
     }
   }, [data, today, settings.weekStartsOn])

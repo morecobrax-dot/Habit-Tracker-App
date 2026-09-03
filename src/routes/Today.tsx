@@ -11,6 +11,8 @@ import { useApp } from '@/state/AppContext'
 import { useDayView, type DayEntry } from '@/state/useDayView'
 import { useHistoryView, weekdayLabels } from '@/state/useHistoryView'
 import { Button, EmptyState } from '@/components/ui'
+import { SkeletonBlock } from '@/components/Skeleton'
+import { WeekReview } from '@/components/WeekReview'
 import { Flame } from '@/components/Flame'
 import { Heatmap, WeekBars } from '@/components/History'
 import { Gem, DEFAULT_GEM } from '@/components/icons/gems'
@@ -99,7 +101,7 @@ export function TodayRoute() {
       )}
 
       {view.loading ? (
-        <p className="py-10 text-center text-body text-text-muted">Loading…</p>
+        <TodayBodySkeleton />
       ) : view.focus === null && view.entries.length === 0 ? (
         <DayEmptyState
           activeHabitCount={view.activeHabitCount}
@@ -156,10 +158,32 @@ export function TodayRoute() {
       */}
       {!history.loading && view.activeHabitCount > 0 && (
         <div className="flex flex-col gap-6 border-t border-border pt-6">
+          <WeekReview review={history.review} />
           <WeekBars days={history.thisWeek} dayLabels={dayLabels} today={today} />
           <Heatmap weeks={history.weeks} dayLabels={dayLabels} />
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * The part of the page that waits on IndexedDB.
+ *
+ * Only the body: the level strip and streak hero render their own zero state
+ * immediately, and replacing those with placeholders would make a fast load
+ * flash twice. Heights match the real focus card and habit list so the page
+ * does not jump when the data lands — the entire point of a skeleton.
+ */
+function TodayBodySkeleton() {
+  return (
+    <div role="status" aria-busy="true" className="flex flex-col gap-6">
+      <span className="sr-only">Loading your day</span>
+      <SkeletonBlock className="h-52 w-full" radius="card" />
+      <div className="flex flex-col gap-2">
+        <SkeletonBlock className="h-3 w-24" />
+        <SkeletonBlock className="h-36 w-full" radius="card" />
+      </div>
     </div>
   )
 }
@@ -188,6 +212,37 @@ function useEnsureFocus(today: DayKey, view: ReturnType<typeof useDayView>) {
     attempted.current = today
     void ensureDailyFocus()
   }, [today, view.loading, view.focusRecord, view.activeHabitCount])
+}
+
+/**
+ * Drives the completion moment: a wash, a gem pop, and the XP floating up.
+ *
+ * Returns an `id` that bumps on every fire. React reuses a DOM node when only
+ * its class changes, and a CSS animation on a reused node does not restart — so
+ * completing, undoing and completing again would play the animation once and
+ * then never again. Keying the animated elements on this id forces a fresh
+ * node each time.
+ *
+ * Unmounts at 750ms rather than at the 400ms the animation takes. Under
+ * `prefers-reduced-motion` the global guard collapses the animation to nothing
+ * and the XP number falls back to its static base style, so the extra time is
+ * what makes it readable for the people who asked for less movement.
+ */
+function useCelebration() {
+  const [state, setState] = useState<{ id: number; xp: number } | null>(null)
+  const counter = useRef(0)
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  useEffect(() => () => clearTimeout(timer.current), [])
+
+  const fire = (xp: number) => {
+    counter.current += 1
+    setState({ id: counter.current, xp })
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => setState(null), 750)
+  }
+
+  return { active: state !== null, id: state?.id ?? 0, xp: state?.xp ?? 0, fire }
 }
 
 /* ------------------------------------------------------------------ */
@@ -345,13 +400,17 @@ function FocusCard({
   const { habit, log } = entry
   const [busy, setBusy] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  const celebration = useCelebration()
 
   const run = async (fn: () => Promise<{ xpGained: number } | void>) => {
     setBusy(true)
     onError(null)
     try {
       const result = await fn()
-      if (result && 'xpGained' in result) onGain(result.xpGained)
+      if (result && 'xpGained' in result) {
+        onGain(result.xpGained)
+        celebration.fire(result.xpGained)
+      }
     } catch (e) {
       onError(e instanceof LoggingError ? e.message : 'Could not save that.')
     } finally {
@@ -367,7 +426,7 @@ function FocusCard({
   return (
     <section
       className={[
-        'rounded-card border p-5 transition-shadow duration-base',
+        'relative overflow-hidden rounded-card border p-5 transition-shadow duration-base',
         // The accent border is what marks this card out, and it strengthens
         // once earned. Glow only on the completed state: it means "earned".
         done
@@ -375,7 +434,24 @@ function FocusCard({
           : 'border-primary/50 bg-surface-raise',
       ].join(' ')}
     >
-      <div className="flex items-start justify-between gap-3">
+      {celebration.active && (
+        <span
+          key={celebration.id}
+          aria-hidden
+          className="complete-fill pointer-events-none absolute inset-0 bg-primary"
+        />
+      )}
+      {celebration.active && celebration.xp > 0 && (
+        <span
+          key={`xp-${celebration.id}`}
+          aria-hidden
+          className="xp-float pointer-events-none absolute top-4 right-5 stat-numerals text-lead text-gold"
+        >
+          +{celebration.xp}
+        </span>
+      )}
+
+      <div className="relative flex items-start justify-between gap-3">
         <p className="label-caps text-text-secondary">Today's focus</p>
         {!done && (
           <span className="shrink-0 rounded-xs border border-gold/30 px-2 py-0.5 text-micro tabular-nums text-gold">
@@ -386,10 +462,11 @@ function FocusCard({
 
       {/* Same heading level in both states, so the card's identity in the
           accessibility tree does not change when it is completed. */}
-      <h2 className="mt-2 text-title leading-tight font-semibold text-text-primary">
+      <h2 className="relative mt-2 text-title leading-tight font-semibold text-text-primary">
         {habit.name}
       </h2>
 
+      <div className="relative">
       {done ? (
         <>
           <p className="mt-2 text-body leading-relaxed text-text-secondary">
@@ -477,6 +554,7 @@ function FocusCard({
           )}
         </>
       )}
+      </div>
     </section>
   )
 }
@@ -508,13 +586,17 @@ function HabitRow({
   const { habit, log, streak, frozenToday } = entry
   const [busy, setBusy] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  const celebration = useCelebration()
 
   const run = async (fn: () => Promise<{ xpGained: number } | void>) => {
     setBusy(true)
     onError(null)
     try {
       const result = await fn()
-      if (result && 'xpGained' in result) onGain(result.xpGained)
+      if (result && 'xpGained' in result) {
+        onGain(result.xpGained)
+        celebration.fire(result.xpGained)
+      }
       setExpanded(false)
     } catch (e) {
       onError(e instanceof LoggingError ? e.message : 'Could not save that.')
@@ -529,8 +611,18 @@ function HabitRow({
   const credited = log?.outcome === 'complete' || log?.outcome === 'partial'
 
   return (
-    <li className={isLast ? '' : 'border-b border-border'}>
-      <div className="flex items-center gap-3 px-3 py-2">
+    <li className={`relative ${isLast ? '' : 'border-b border-border'}`}>
+      {/* The wash. `pointer-events-none` and `aria-hidden` because it is pure
+          feedback sitting on top of a live control. */}
+      {celebration.active && (
+        <span
+          key={celebration.id}
+          aria-hidden
+          className="complete-fill pointer-events-none absolute inset-0 bg-primary"
+        />
+      )}
+
+      <div className="relative flex items-center gap-3 px-3 py-2">
         {/* 44px: the completion tap is the most-used control in the app and
             the one whose mis-tap is most annoying, so it gets the full
             comfortable target rather than the 36px the visual circle needs. */}
@@ -562,9 +654,12 @@ function HabitRow({
         </button>
 
         {/* The gem glows only on the day the habit is credited — glow means
-            "earned", so an untouched habit must not carry it. */}
+            "earned", so an untouched habit must not carry it — and pops once,
+            on the moment it is earned. */}
         <span className={credited ? 'drop-shadow-gem' : undefined}>
-          <Gem id={habit.icon ?? DEFAULT_GEM} size={24} />
+          <span key={celebration.id} className={celebration.active ? 'gem-pop' : undefined}>
+            <Gem id={habit.icon ?? DEFAULT_GEM} size={24} />
+          </span>
         </span>
 
         <button
@@ -591,16 +686,37 @@ function HabitRow({
           </p>
         </button>
 
-        {/* A small flame per row, so the streak is legible without reading.
-            Silent to screen readers: the count is already in the text above. */}
-        {streak.current > 0 && (
-          <span className="flex shrink-0 items-center gap-1 pr-1">
-            <Flame streak={streak.current} size={18} />
-            <span className="stat-numerals text-small text-text-secondary">
-              {streak.current}
+        {/*
+          The right-hand slot holds the flame normally, and the XP gain for the
+          moment after a completion.
+
+          They share the slot rather than stacking because the row is 60px tall
+          inside a list that clips its own corners — a number floating *above*
+          the row is simply cut off, and one floating beside the flame lands on
+          top of it. Sharing also happens to be the honest thing to show: the
+          streak that flame represents is what just changed.
+        */}
+        <span className="flex min-w-9 shrink-0 items-center justify-end gap-1 pr-1">
+          {celebration.active && celebration.xp > 0 ? (
+            <span
+              key={celebration.id}
+              aria-hidden
+              className="xp-float stat-numerals text-small text-gold"
+            >
+              +{celebration.xp}
             </span>
-          </span>
-        )}
+          ) : (
+            streak.current > 0 && (
+              <>
+                {/* Silent to screen readers: the count is in the text above. */}
+                <Flame streak={streak.current} size={18} />
+                <span className="stat-numerals text-small text-text-secondary">
+                  {streak.current}
+                </span>
+              </>
+            )
+          )}
+        </span>
       </div>
 
       {expanded && (

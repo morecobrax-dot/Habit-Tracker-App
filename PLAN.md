@@ -236,24 +236,54 @@ Top to bottom:
       Both charts distinguish *future* from *empty*: a day not yet lived
       is an outline, never a miss.
 
-### [ ] Step 5 — standard habit-tracker features
-**Next.** Step 4 is done. Carried forward from `reports/step-4.md`: the
-tab bar has only the minimum treatment needed to be on-palette, and the
-type scale still drifts to Tailwind's built-in sizes on the three
-screens step 5 touches — the same fix that cured the radius problem
-(`--text-*: initial`) applies, and is best done during that pass.
+### [x] Step 5 — standard habit-tracker features
+Audited in `reports/step-5.md`. Zero contrast failures across all five
+real screens. Type scale locked with `--text-*: initial`, so Tailwind's
+built-in sizes are gone the way the built-in radii went — that
+immediately caught three Settings headings set in 15px all-caps, which
+the typography rule forbids.
 
-- [ ] Completion interaction: card fills, icon glows, XP number floats
+**One deliberate change to the brief:** "most missed habit" is built but
+reframed. Details below.
+
+- [x] Completion interaction: card fills, icon glows, XP number floats
       up. Under 400ms. The single most important animation in the app.
-- [ ] Drag to reorder habits.
-- [ ] Per-habit detail screen with its own calendar heatmap and stats.
-- [ ] Weekly review: completion rate, best streak, most missed habit.
-- [ ] Empty states with real copy, not blank space.
-- [ ] Skeleton loaders instead of layout jumps.
-- [ ] Bottom tab navigation, thumb-reachable, clear active state.
+      Wash 360ms, gem pop 320ms, XP float 400ms. Two non-obvious parts:
+      the animation restarts only because the elements are keyed on an
+      incrementing id (React reuses the node otherwise, and a CSS
+      animation on a reused node never replays), and the XP number
+      shares the flame's slot because floating it anywhere else is
+      either clipped by the list or lands on top of the flame.
+      Reduced motion is a real path — the base styles are the still
+      frames, so the wash never appears and the number stays readable.
+- [x] Drag to reorder habits.
+      Pointer events, not HTML5 drag-and-drop, which never fires on
+      touch. The handle is a button and the arrow keys move the row,
+      announced through a live region — this order drives the home
+      screen, so it cannot be pointer-only. Verified end to end,
+      including that it survives a reload.
+- [x] Per-habit detail screen with its own calendar heatmap and stats.
+      Split from the editor: looking at a habit and changing it are
+      different intentions.
+- [x] Weekly review: completion rate, best streak, most missed habit.
+      **Reframed.** The card is headed "Finding it hard", its body is
+      that habit's two-minute version rather than a failure count, and
+      the ratio is still shown. `CLAUDE.md` already ruled that showing
+      neglect back "would turn the card into a daily accusation, which
+      is an avoidance engine", and "most missed" is that with a
+      leaderboard. On a perfect week nothing is named at all. The blunt
+      version is one copy change if you disagree.
+- [x] Empty states with real copy, not blank space. Nine of them.
+- [x] Skeleton loaders instead of layout jumps.
+      Including the app shell's first paint, which previously collapsed
+      to one centred line before expanding into a full page.
+- [x] Bottom tab navigation, thumb-reachable, clear active state.
+      56px, icon plus label, active state carried four ways and never
+      by red text.
 
 ### [ ] Step 6 — cleanup and audit
-Audit portion done in `reports/step-6.md`; the deletion waits on step 4.
+**Next.** Audit portion done in `reports/step-6.md`; steps 4 and 5
+closed everything it depended on, so only the deletion is left.
 
 Headlines: no hardcoded hex anywhere. 75 legacy references, concentrated
 in `components/ui/index.tsx` — migrate that first and most of the app
@@ -264,10 +294,9 @@ deliberate demo row; the new palette produces none.
 
 Re-runnable as `audit.mjs` against a dev server.
 - [ ] Delete the legacy palette from `index.css`.
-      **Unblocked.** Step 4 migrated every screen; references are now 0,
-      down from 75, so this is a pure deletion with nothing pointing at
-      it. The `@theme` block is still there because deleting it is this
-      step's job, not step 4's.
+      **Unblocked and now a pure deletion.** Every screen was migrated
+      in step 4; references have been 0 (from 75) since. The `@theme`
+      block has nothing pointing at it.
 - [x] Flag any component still pointing at legacy tokens.
 - [x] Audit every screen against the tokens file; report anything that
       drifted.
