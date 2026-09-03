@@ -39,13 +39,24 @@ const log = (dayKey: DayKey, outcome: LogOutcome = 'complete', xpAwarded = 0): H
  * asserting an implementation against itself proves only that it is consistent,
  * not that it is correct.
  */
+/**
+ * The formula from `domain/xp.ts`, written out a second time on purpose.
+ *
+ * Its value is that it is *independent*: if the engine and this disagree, one
+ * of them is wrong and the test says so. That only works if it is kept in step
+ * with the documented formula deliberately, which is what happened when the
+ * focus bonus moved inside the multiplier in v2.
+ */
 const expectedXp = (
   base: number,
   factor: number,
   rate: number,
   focusBonus: number,
   rules: XpRules = R,
-) => Math.round(base * factor * (1 + rules.consistency.maxBonus * rate)) + focusBonus
+) => {
+  const multiplier = 1 + rules.consistency.maxBonus * rate
+  return Math.round(base * factor * multiplier + focusBonus * multiplier)
+}
 
 describe('base awards', () => {
   it('scores a completion at full base XP when consistency is zero', () => {
@@ -63,7 +74,7 @@ describe('base awards', () => {
     )
     expect(award.total).toBe(30)
     expect(award.breakdown.consistencyMultiplier).toBe(1)
-    expect(award.rulesVersion).toBe('v1')
+    expect(award.rulesVersion).toBe(R.version)
   })
 
   it('scales with difficulty', () => {

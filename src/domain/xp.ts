@@ -1,7 +1,7 @@
 /**
  * XP scoring. Pure: logs and rules in, a number out.
  *
- *   xp = round(base x completionFactor x consistencyMultiplier) + focusBonus
+ *   xp = round((base x completionFactor + focusBonus) x consistencyMultiplier)
  *
  * ## Why consistency, not streak
  *
@@ -17,14 +17,31 @@
  * it recovers within days of coming back. The streak still shows as a number
  * for the satisfaction of it; it just does not gate the reward.
  *
- * ## Why the focus bonus is flat
+ * ## The focus bonus: flat in difficulty, scaled by consistency
  *
- * Multiplicative would make hard habits the best focus targets. But avoided
- * tasks are usually trivial-but-dreaded — make the call, open the letter. A
- * flat bonus means a tier-1 avoided habit, done at its two-minute minimum, is
- * worth more than a tier-3 habit completed in full. That is the correct
- * incentive: the app should pay most for starting the thing being avoided, at
- * its smallest possible size.
+ * The bonus must not scale with *difficulty*. That would make hard habits the
+ * best focus targets, and avoided tasks are usually trivial-but-dreaded — make
+ * the call, open the letter. Keeping it flat in difficulty is what makes a
+ * tier-1 avoided habit, done at its two-minute minimum, worth more than a
+ * tier-3 habit completed in full. The app should pay most for starting the
+ * thing being avoided, at its smallest possible size.
+ *
+ * It must scale with *consistency*, and this is the part v1 got wrong. Every
+ * other term was multiplied while the bonus stayed flat, so the bonus was a
+ * shrinking share of a growing award and the invariant above held only at a
+ * multiplier of exactly 1.00. From 1.05 — which is most of the life of any
+ * account that is going well — a full tier-3 completion paid more than the
+ * avoided thing, so the app quietly stopped paying most for its own core
+ * lever, and stopped doing so precisely as the user got established.
+ *
+ * Scaling the bonus by consistency alongside everything else keeps its
+ * relative weight constant, which restores the invariant at every multiplier
+ * in the range. It leaves the bonus flat in difficulty, so nothing about the
+ * paragraph above changes.
+ *
+ * The rounding also moved: one `round` over the whole sum rather than one over
+ * the base term plus an unrounded bonus. Two roundings compound, and at 1.05
+ * that was the difference between winning and tying.
  */
 
 import type { DayKey, Habit, HabitLog, LogOutcome, Weekday } from '@/domain/types'
@@ -80,8 +97,16 @@ export function awardXp(input: AwardXpInput, rules: XpRules): XpAward {
     weekStartsOn,
     rules,
   )
-  const focusBonus = isFocus ? rules.focusBonus : 0
-  const total = Math.round(base * completionFactor * consistencyMultiplier) + focusBonus
+  // Scaled by consistency like every other term, so the bonus keeps its
+  // relative weight instead of being diluted as the multiplier grows.
+  // `breakdown.focusBonus` records the scaled value, which is what the award
+  // actually contained — the ruleset's flat 25 is the input, not the payout.
+  const focusBonus = isFocus ? rules.focusBonus * consistencyMultiplier : 0
+
+  // One rounding over the whole sum. Rounding the base term and the bonus
+  // separately compounds two errors; with `focusBonus` at 0 this is identical
+  // to the old expression, so nothing but a focus award changes.
+  const total = Math.round(base * completionFactor * consistencyMultiplier + focusBonus)
 
   return {
     total,

@@ -5,7 +5,7 @@ import { compareDayKeys } from '@/domain/time/dayKey'
 import { computeStreak, type StreakResult } from '@/domain/streak'
 import { groupLogsByHabit } from '@/domain/logs'
 import { isHabitDueOn } from '@/domain/schedule'
-import { totalXpFromLogs } from '@/domain/xp'
+import { awardXp, totalXpFromLogs } from '@/domain/xp'
 import { levelForXp, type LevelState } from '@/domain/level'
 import { DEFAULT_XP_RULES } from '@/domain/rules/xpRules'
 import { db } from '@/data/db'
@@ -27,6 +27,16 @@ export interface DayView {
   /** Everything else due on the selected day. */
   entries: DayEntry[]
   level: LevelState
+  /**
+   * What the focus bonus is actually worth today, rounded for display.
+   *
+   * Computed rather than read off the ruleset: the bonus is scaled by the
+   * habit's consistency multiplier, so the flat 25 in `XpRules` is the input,
+   * not the payout. Showing the input would understate the reward by up to 30%
+   * on an established account — and understating the core lever is the same
+   * class of mistake as diluting it.
+   */
+  focusBonus: number
   freezeTokens: number
   loading: boolean
   activeHabitCount: number
@@ -62,6 +72,7 @@ export function useDayView(selectedDay: DayKey): DayView {
         focusRecord: undefined,
         entries: [],
         level: levelForXp(0, DEFAULT_XP_RULES),
+        focusBonus: DEFAULT_XP_RULES.focusBonus,
         freezeTokens: 0,
         loading: true,
         activeHabitCount: 0,
@@ -102,11 +113,31 @@ export function useDayView(selectedDay: DayKey): DayView {
     const focus = focusId ? (due.find((entry) => entry.habit.id === focusId) ?? null) : null
     const entries = focus ? due.filter((entry) => entry.habit.id !== focus.habit.id) : due
 
+    // A preview award for the focus habit, taken apart for its bonus term. The
+    // outcome does not matter here — the bonus is the same for a completion and
+    // for the two-minute version, which is the point of it.
+    const focusBonus = focus
+      ? Math.round(
+          awardXp(
+            {
+              habit: focus.habit,
+              outcome: 'complete',
+              dayKey: selectedDay,
+              logs: logsByHabit.get(focus.habit.id) ?? [],
+              isFocus: true,
+              weekStartsOn,
+            },
+            DEFAULT_XP_RULES,
+          ).breakdown.focusBonus,
+        )
+      : DEFAULT_XP_RULES.focusBonus
+
     return {
       focus,
       focusRecord: data.focusRecord,
       entries,
       level: levelForXp(totalXpFromLogs(data.logs), DEFAULT_XP_RULES),
+      focusBonus,
       freezeTokens: data.gameState?.freezeTokens ?? 0,
       loading: false,
       activeHabitCount: data.habits.length,

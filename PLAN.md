@@ -113,10 +113,18 @@ day, which reads as punishment. And the approved worked example was ~3%
 optimistic: the real week produces 499 XP, now pinned as a test rather
 than living in prose.
 
-**Open, not blocking:** the focus bonus is flat while every other term is
-multiplied, so the focus advantage erodes as consistency rises — it wins
-by 1 XP at multiplier 1.00 and loses from 1.10 onward. Proposed one-line
-fix in `reports/phase-3.md`; changing the formula needs approval.
+**Closed in `reports/xp-v2.md`,** outside the plan sequence. The flat
+focus bonus was not a formula preference — it broke a contract `xp.ts`
+documented itself, and `CLAUDE.md` calls the daily focus the core lever,
+so it was a defect. The bonus now scales with consistency; rules bumped
+to v2 so no banked XP moves.
+
+**Still open, and yours to decide:** that fix restores the invariant
+*like for like*, but the multiplier is per-habit and the focus habit is
+the neglected one by construction — so against a well-kept rival it
+still under-pays. Four options in the report; I did not pick one,
+because it changes reward philosophy rather than fixing a broken
+contract.
 - [x] XP per log based on difficulty, completion type, streak multiplier
       (capped), and daily-focus bonus.
 - [x] Level curve: fast early, progressively slower.

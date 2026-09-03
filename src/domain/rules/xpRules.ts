@@ -35,7 +35,14 @@ export interface XpRules {
     maxBonus: number
   }
 
-  /** Flat XP added for completing the day's focus habit, at any credited level. */
+  /**
+   * XP added for completing the day's focus habit, at any credited level.
+   *
+   * Flat in *difficulty* — a dreaded two-minute task should out-earn a
+   * comfortable big one — but scaled by the consistency multiplier along with
+   * everything else, so it does not shrink into irrelevance as an account
+   * matures. `domain/xp.ts` has the reasoning and the numbers.
+   */
   focusBonus: number
 
   level: {
@@ -47,7 +54,16 @@ export interface XpRules {
 }
 
 export const DEFAULT_XP_RULES: XpRules = {
-  version: 'v1',
+  /*
+   * v2: the focus bonus is scaled by the consistency multiplier rather than
+   * added flat. v1 diluted it as an account matured, so the app stopped paying
+   * most for its own core lever — see `domain/xp.ts`.
+   *
+   * Bumping the version is the whole point of having one. Logs written under
+   * v1 keep their `rulesVersion` and the XP they banked; nothing is recomputed
+   * and no total moves. Only awards made from here on use the new arithmetic.
+   */
+  version: 'v2',
 
   // Mildly superlinear: choosing the hard thing should pay, but not so much
   // that easy habits feel pointless.
@@ -65,7 +81,7 @@ export const DEFAULT_XP_RULES: XpRules = {
 
   consistency: { windowDays: 14, minDenominator: 5, maxBonus: 0.3 },
 
-  // Flat, not multiplicative — see `domain/xp.ts` for why that matters.
+  // Flat in difficulty, scaled by consistency — see `domain/xp.ts`.
   focusBonus: 25,
 
   level: { baseXp: 40, exponent: 1.35 },

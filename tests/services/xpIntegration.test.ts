@@ -55,7 +55,7 @@ describe('XP is banked on the log', () => {
 
     expect(log.xpAwarded).toBe(30)
     expect(xpGained).toBe(30)
-    expect(log.rulesVersion).toBe('v1')
+    expect(log.rulesVersion).toBe(DEFAULT_XP_RULES.version)
     expect(log.xpBreakdown).toMatchObject({ base: 30, completionFactor: 1 })
     expect(award.total).toBe(30)
     expect(await totalXp()).toBe(30)

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { DayKey, LogOutcome, PartialKind } from '@/domain/types'
 import { backdatableDays, diffDays } from '@/domain/time/dayKey'
-import { DEFAULT_XP_RULES } from '@/domain/rules/xpRules'
 import { bestStreak } from '@/domain/history'
 import { LoggingError, logHabit, unlogHabit } from '@/services/loggingService'
 import { ensureDailyFocus } from '@/services/focusService'
@@ -114,6 +113,7 @@ export function TodayRoute() {
             <FocusCard
               entry={view.focus}
               day={activeDay}
+              bonus={view.focusBonus}
               onError={setError}
               onGain={noteGain}
             />
@@ -389,11 +389,14 @@ function StreakHero({ entry }: { entry: DayEntry | null }) {
 function FocusCard({
   entry,
   day,
+  bonus,
   onError,
   onGain,
 }: {
   entry: DayEntry
   day: DayKey
+  /** The bonus as it will actually be paid, not the ruleset's flat input. */
+  bonus: number
   onError: (message: string | null) => void
   onGain: (xp: number) => void
 }) {
@@ -455,7 +458,7 @@ function FocusCard({
         <p className="label-caps text-text-secondary">Today's focus</p>
         {!done && (
           <span className="shrink-0 rounded-xs border border-gold/30 px-2 py-0.5 text-micro tabular-nums text-gold">
-            +{DEFAULT_XP_RULES.focusBonus} bonus
+            +{bonus} bonus
           </span>
         )}
       </div>

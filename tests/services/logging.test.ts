@@ -8,6 +8,7 @@ import { requireGameState, listFreezeEvents } from '@/data/repos/gameStateRepo'
 import { LoggingError, logHabit, unlogHabit } from '@/services/loggingService'
 import { runRollover } from '@/services/rolloverService'
 import { fixedClock } from '@/services/clock'
+import { DEFAULT_XP_RULES } from '@/domain/rules/xpRules'
 import type { HabitDraft } from '@/domain/habitValidation'
 import type { Habit, Schedule } from '@/domain/types'
 
@@ -65,7 +66,7 @@ describe('logHabit', () => {
     // A tier-2 completion with no prior history: full base XP, multiplier 1.0.
     // The award is snapshotted onto the row along with the ruleset that made it.
     expect(log.xpAwarded).toBe(18)
-    expect(log.rulesVersion).toBe('v1')
+    expect(log.rulesVersion).toBe(DEFAULT_XP_RULES.version)
   })
 
   it('records the partial kind', async () => {
